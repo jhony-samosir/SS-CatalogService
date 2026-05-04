@@ -38,6 +38,20 @@ func (r *productRepository) FindAll(ctx context.Context, p domain.Pagination) ([
 	return products, nil
 }
 
+func (r *productRepository) FindByID(ctx context.Context, id int) (*domain.Product, error) {
+	var model ProductModel
+	db := getDB(ctx, r.db)
+
+	if err := db.First(&model, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	product := model.ToDomain()
+	return &product, nil
+}
+
 func (r *productRepository) FindByPublicID(ctx context.Context, publicID uuid.UUID) (*domain.Product, error) {
 	var model ProductModel
 	db := getDB(ctx, r.db)

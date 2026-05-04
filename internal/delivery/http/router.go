@@ -11,6 +11,7 @@ import (
 type RouterConfig struct {
 	ProductCommandUsecase domain.ProductCommandUsecase
 	ProductQueryUsecase   domain.ProductQueryUsecase
+	VariantCommandUsecase domain.VariantCommandUsecase
 }
 
 // SetupRouter wires the HTTP routes using already-constructed usecases.
@@ -25,6 +26,12 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 			products.POST("", productHandler.CreateProduct)
 			products.GET("", productHandler.GetProducts)
 			products.GET("/:id", productHandler.GetProduct)
+		}
+
+		variantHandler := v1.NewVariantHandler(cfg.VariantCommandUsecase)
+		variants := api.Group("/variants")
+		{
+			variants.POST("", variantHandler.CreateVariant)
 		}
 	}
 }

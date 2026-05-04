@@ -11,6 +11,7 @@ import (
 	"ss-catalog-service/internal/infrastructure/database"
 	pgmodel "ss-catalog-service/internal/repository/postgres"
 	productusecase "ss-catalog-service/internal/usecase/product"
+	variantusecase "ss-catalog-service/internal/usecase/variant"
 )
 
 func main() {
@@ -36,11 +37,16 @@ func main() {
 	productCmd := productusecase.NewProductCommandUsecase(productRepo)
 	productQry := productusecase.NewProductQueryUsecase(productRepo)
 
+	txManager := pgmodel.NewTransactionManager(db)
+	variantRepo := pgmodel.NewVariantRepository(db)
+	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)
+
 	// --- HTTP Router ---
 	r := gin.Default()
 	apphttp.SetupRouter(r, apphttp.RouterConfig{
 		ProductCommandUsecase: productCmd,
 		ProductQueryUsecase:   productQry,
+		VariantCommandUsecase: variantCmd,
 	})
 
 	// --- Start Server ---

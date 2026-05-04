@@ -103,3 +103,64 @@ func (m *ProductVariantModel) ToDomain() domain.ProductVariant {
 		SortOrder:  m.SortOrder,
 	}
 }
+
+func FromVariantDomain(v *domain.ProductVariant) *ProductVariantModel {
+	return &ProductVariantModel{
+		BaseModel: BaseModel{
+			ID:        v.ID,
+			PublicID:  v.PublicID,
+			CreatedAt: v.CreatedAt,
+			CreatedBy: v.CreatedBy,
+			UpdatedAt: v.UpdatedAt,
+			UpdatedBy: v.UpdatedBy,
+			DeletedBy: v.DeletedBy,
+		},
+		ProductID:  v.ProductID,
+		SKU:        v.SKU,
+		Barcode:    v.Barcode,
+		Name:       v.Name,
+		IsDefault:  v.IsDefault,
+		IsActive:   v.IsActive,
+		WeightGram: v.WeightGram,
+		SortOrder:  v.SortOrder,
+	}
+}
+
+func FromVariantAttributeDomain(a *domain.ProductVariantAttribute) *ProductVariantAttributeModel {
+	return &ProductVariantAttributeModel{
+		BaseModel: BaseModel{
+			ID:        a.ID,
+			PublicID:  a.PublicID,
+			CreatedAt: a.CreatedAt,
+			CreatedBy: a.CreatedBy,
+			UpdatedAt: a.UpdatedAt,
+			UpdatedBy: a.UpdatedBy,
+			DeletedBy: a.DeletedBy,
+		},
+		VariantID:        a.VariantID,
+		AttributeID:      a.AttributeID,
+		AttributeValueID: a.AttributeValueID,
+	}
+}
+
+func FromImageDomain(img *domain.ProductImage) *ProductImageModel {
+	return &ProductImageModel{
+		BaseModel: BaseModel{
+			ID:        img.ID,
+			PublicID:  img.PublicID,
+			CreatedAt: img.CreatedAt,
+			CreatedBy: img.CreatedBy,
+			UpdatedAt: img.UpdatedAt,
+			UpdatedBy: img.UpdatedBy,
+			DeletedBy: img.DeletedBy,
+		},
+		ProductID: img.ProductID,
+		VariantID: img.VariantID,
+		URL:       img.URL,
+		AltText:   img.AltText,
+		SortOrder: img.SortOrder,
+		IsPrimary: img.IsPrimary,
+		WidthPX:   img.WidthPX,
+		HeightPX:  img.HeightPX,
+	}
+}

@@ -54,6 +54,7 @@ type Pagination struct {
 // ProductRepository defines the contract for product data access.
 type ProductRepository interface {
 	FindAll(ctx context.Context, p Pagination) ([]Product, error)
+	FindByID(ctx context.Context, id int) (*Product, error)
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Product, error)
 	Create(ctx context.Context, product *Product) error
 }
