@@ -1,0 +1,42 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Build folders
+bin/
+dist/
+build/
+
+# Dependency
+vendor/
+
+# Go workspace
+go.work
+
+# Env files
+.env
+.env.*
+
+# Logs
+*.log
+
+# Temp
+tmp/
+*.sql
+
+# Coverage
+coverage.out
+*.coverprofile
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+EOF
