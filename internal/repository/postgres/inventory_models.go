@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"ss-catalog-service/internal/domain"
 	"time"
 )
 
@@ -59,3 +60,51 @@ type InventoryMovementModel struct {
 }
 
 func (InventoryMovementModel) TableName() string { return "inventory_movements" }
+
+func (m *ProductInventoryModel) ToDomain() domain.ProductInventory {
+	return domain.ProductInventory{
+		BaseEntity: domain.BaseEntity{
+			ID:        m.ID,
+			PublicID:  m.PublicID,
+			CreatedAt: m.CreatedAt,
+			UpdatedAt: m.UpdatedAt,
+		},
+		VariantID:        m.VariantID,
+		WarehouseID:      m.WarehouseID,
+		QuantityOnHand:   m.QuantityOnHand,
+		QuantityReserved: m.QuantityReserved,
+		LowStockAlert:    m.LowStockAlert,
+	}
+}
+
+func FromInventoryDomain(i *domain.ProductInventory) *ProductInventoryModel {
+	return &ProductInventoryModel{
+		BaseModel: BaseModel{
+			ID:        i.ID,
+			PublicID:  i.PublicID,
+			CreatedAt: i.CreatedAt,
+			UpdatedAt: i.UpdatedAt,
+		},
+		VariantID:        i.VariantID,
+		WarehouseID:      i.WarehouseID,
+		QuantityOnHand:   i.QuantityOnHand,
+		QuantityReserved: i.QuantityReserved,
+		LowStockAlert:    i.LowStockAlert,
+	}
+}
+
+func FromMovementDomain(m *domain.InventoryMovement) *InventoryMovementModel {
+	return &InventoryMovementModel{
+		BaseModel: BaseModel{
+			ID:        m.ID,
+			PublicID:  m.PublicID,
+			CreatedAt: m.CreatedAt,
+		},
+		InventoryID:   m.InventoryID,
+		MovementType:  string(m.MovementType),
+		Quantity:      m.Quantity,
+		ReferenceID:   m.ReferenceID,
+		ReferenceType: string(m.ReferenceType),
+		Note:          m.Note,
+	}
+}

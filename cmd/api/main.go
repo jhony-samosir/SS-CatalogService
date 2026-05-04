@@ -12,6 +12,7 @@ import (
 	pgmodel "ss-catalog-service/internal/repository/postgres"
 	productusecase "ss-catalog-service/internal/usecase/product"
 	variantusecase "ss-catalog-service/internal/usecase/variant"
+	inventoryusecase "ss-catalog-service/internal/usecase/inventory"
 )
 
 func main() {
@@ -40,6 +41,11 @@ func main() {
 	txManager := pgmodel.NewTransactionManager(db)
 	variantRepo := pgmodel.NewVariantRepository(db)
 	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)
+	_ = variantCmd // Silence unused warning until router update
+
+	inventoryRepo := pgmodel.NewInventoryRepository(db)
+	inventoryCmd := inventoryusecase.NewInventoryCommandUsecase(inventoryRepo, txManager)
+	_ = inventoryCmd // Silence unused warning
 
 	// --- HTTP Router ---
 	r := gin.Default()

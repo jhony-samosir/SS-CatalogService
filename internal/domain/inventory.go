@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"errors"
+	"time"
+)
 
 // PriceType defines the tier of pricing.
 type PriceType string
@@ -60,6 +64,16 @@ const (
 	MovementTypeAdjustment MovementType = "adjustment"
 )
 
+// InventoryReferenceType defines standardized sources of stock changes.
+type InventoryReferenceType string
+
+const (
+	ReferenceTypeOrder      InventoryReferenceType = "order"
+	ReferenceTypeRestock    InventoryReferenceType = "restock"
+	ReferenceTypeAdjustment InventoryReferenceType = "adjustment"
+	ReferenceTypeReturn     InventoryReferenceType = "return"
+)
+
 // InventoryMovement represents an audit trail for stock changes.
 type InventoryMovement struct {
 	BaseEntity
@@ -67,6 +81,36 @@ type InventoryMovement struct {
 	MovementType  MovementType
 	Quantity      int
 	ReferenceID   string
-	ReferenceType string
+	ReferenceType InventoryReferenceType
 	Note          string
+}
+
+// Sentinel Errors
+var (
+	ErrInsufficientStock = errors.New("insufficient stock available")
+	ErrInventoryNotFound = errors.New("inventory record not found")
+)
+
+// --- DTOs ---
+
+type UpdateStockPayload struct {
+	VariantID     int
+	WarehouseID   int
+	Quantity      int // Positive for IN, Negative for OUT
+	ReferenceType InventoryReferenceType
+	ReferenceID   string
+	Note          string
+}
+
+// --- Interfaces ---
+
+type InventoryRepository interface {
+	GetInventoryForUpdate(ctx context.Context, variantID int, warehouseID int) (*ProductInventory, error)
+	CreateInventory(ctx context.Context, inv *ProductInventory) error
+	UpdateInventory(ctx context.Context, inv *ProductInventory) error
+	CreateMovement(ctx context.Context, movement *InventoryMovement) error
+}
+
+type InventoryCommandUsecase interface {
+	UpdateInventoryStock(ctx context.Context, payload UpdateStockPayload) error
 }
