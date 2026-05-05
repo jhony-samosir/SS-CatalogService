@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 )
@@ -58,4 +59,12 @@ type OutboxEvent struct {
 	RetryCount    int
 	PublishedAt   *time.Time
 	ErrorMessage  string
+}
+
+// OutboxRepository defines the contract for outbox event management.
+type OutboxRepository interface {
+	Save(ctx context.Context, event *OutboxEvent) error
+	FetchPending(ctx context.Context, limit int) ([]OutboxEvent, error)
+	MarkAsPublished(ctx context.Context, id int) error
+	MarkAsFailed(ctx context.Context, id int, errorMessage string) error
 }

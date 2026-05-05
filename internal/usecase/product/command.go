@@ -2,6 +2,7 @@ package product
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -15,26 +16,68 @@ import (
 )
 
 type productCommandUsecase struct {
-	repo domain.ProductRepository
+	repo       domain.ProductRepository
+	outboxRepo domain.OutboxRepository
+	txManager  domain.TransactionManager
 }
 
 // NewProductCommandUsecase creates a new instance of product command business logic.
-func NewProductCommandUsecase(repo domain.ProductRepository) domain.ProductCommandUsecase {
-	return &productCommandUsecase{repo: repo}
+func NewProductCommandUsecase(
+	repo domain.ProductRepository,
+	outboxRepo domain.OutboxRepository,
+	txManager domain.TransactionManager,
+) domain.ProductCommandUsecase {
+	return &productCommandUsecase{
+		repo:       repo,
+		outboxRepo: outboxRepo,
+		txManager:  txManager,
+	}
 }
 
 func (u *productCommandUsecase) CreateProduct(ctx context.Context, payload domain.CreateProductPayload) (*domain.Product, error) {
-	product := &domain.Product{
-		BaseEntity: domain.BaseEntity{
-			PublicID: uuid.New(),
-		},
-		BrandID: payload.BrandID,
-		Name:    payload.Name,
-		Slug:    generateSlug(payload.Name),
-		Status:  domain.ProductStatusDraft,
-	}
+	var product *domain.Product
 
-	if err := u.repo.Create(ctx, product); err != nil {
+	err := u.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		product = &domain.Product{
+			BaseEntity: domain.BaseEntity{
+				PublicID: uuid.New(),
+			},
+			BrandID: payload.BrandID,
+			Name:    payload.Name,
+			Slug:    generateSlug(payload.Name),
+			Status:  domain.ProductStatusDraft,
+		}
+
+		// 1. Save Product
+		if err := u.repo.Create(txCtx, product); err != nil {
+			return fmt.Errorf("failed to save product: %w", err)
+		}
+
+		// 2. Prepare Outbox Event
+		eventPayload, _ := json.Marshal(map[string]interface{}{
+			"id":        product.ID,
+			"public_id": product.PublicID,
+			"name":      product.Name,
+			"slug":      product.Slug,
+		})
+
+		outboxEvent := &domain.OutboxEvent{
+			EventType:     "ProductCreated",
+			AggregateType: "Product",
+			AggregateID:   product.ID,
+			Payload:       eventPayload,
+			Status:        domain.OutboxStatusPending,
+		}
+
+		// 3. Save Outbox Event (in the same transaction)
+		if err := u.outboxRepo.Save(txCtx, outboxEvent); err != nil {
+			return fmt.Errorf("failed to save outbox event: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
 		return nil, fmt.Errorf("productCommandUsecase.CreateProduct: %w", err)
 	}
 

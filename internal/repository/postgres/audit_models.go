@@ -1,7 +1,10 @@
 package postgres
 
 import (
+	"encoding/json"
 	"time"
+
+	"ss-catalog-service/internal/domain"
 
 	"gorm.io/datatypes"
 )
@@ -59,3 +62,45 @@ type OutboxEventModel struct {
 }
 
 func (OutboxEventModel) TableName() string { return "outbox_events" }
+
+func (m *OutboxEventModel) ToDomain() domain.OutboxEvent {
+	return domain.OutboxEvent{
+		BaseEntity: domain.BaseEntity{
+			ID:        m.ID,
+			PublicID:  m.PublicID,
+			CreatedAt: m.CreatedAt,
+			CreatedBy: m.CreatedBy,
+			UpdatedAt: m.UpdatedAt,
+			UpdatedBy: m.UpdatedBy,
+		},
+		EventType:     m.EventType,
+		AggregateType: m.AggregateType,
+		AggregateID:   m.AggregateID,
+		Payload:       json.RawMessage(m.Payload),
+		Status:        domain.OutboxStatus(m.Status),
+		RetryCount:    m.RetryCount,
+		PublishedAt:   m.PublishedAt,
+		ErrorMessage:  m.ErrorMessage,
+	}
+}
+
+func FromOutboxDomain(e *domain.OutboxEvent) *OutboxEventModel {
+	return &OutboxEventModel{
+		BaseModel: BaseModel{
+			ID:        e.ID,
+			PublicID:  e.PublicID,
+			CreatedAt: e.CreatedAt,
+			CreatedBy: e.CreatedBy,
+			UpdatedAt: e.UpdatedAt,
+			UpdatedBy: e.UpdatedBy,
+		},
+		EventType:     e.EventType,
+		AggregateType: e.AggregateType,
+		AggregateID:   e.AggregateID,
+		Payload:       datatypes.JSON(e.Payload),
+		Status:        string(e.Status),
+		RetryCount:    e.RetryCount,
+		PublishedAt:   e.PublishedAt,
+		ErrorMessage:  e.ErrorMessage,
+	}
+}

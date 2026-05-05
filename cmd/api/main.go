@@ -1,18 +1,24 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
 	apphttp "ss-catalog-service/internal/delivery/http"
 	"ss-catalog-service/internal/infrastructure/database"
+	"ss-catalog-service/internal/infrastructure/messaging"
 	pgmodel "ss-catalog-service/internal/repository/postgres"
 	productusecase "ss-catalog-service/internal/usecase/product"
 	variantusecase "ss-catalog-service/internal/usecase/variant"
 	inventoryusecase "ss-catalog-service/internal/usecase/inventory"
+	"ss-catalog-service/internal/worker"
 )
 
 func main() {
@@ -33,9 +39,15 @@ func main() {
 		log.Fatalf("Database migration failed: %v", err)
 	}
 
+	// --- Infrastructure: Messaging ---
+	logBroker := messaging.NewLogBroker()
+
 	// --- Dependency Injection (Composition Root) ---
+	txManager := pgmodel.NewTransactionManager(db)
+	outboxRepo := pgmodel.NewOutboxRepository(db)
+
 	productRepo := pgmodel.NewProductRepository(db)
-	productCmd := productusecase.NewProductCommandUsecase(productRepo)
+	productCmd := productusecase.NewProductCommandUsecase(productRepo, outboxRepo, txManager)
 
 	defaultLang := os.Getenv("DEFAULT_LANG")
 	if defaultLang == "" {
@@ -43,7 +55,6 @@ func main() {
 	}
 	productQry := productusecase.NewProductQueryUsecase(productRepo, defaultLang)
 
-	txManager := pgmodel.NewTransactionManager(db)
 	variantRepo := pgmodel.NewVariantRepository(db)
 	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)
 	_ = variantCmd // Silence unused warning until router update
@@ -51,6 +62,13 @@ func main() {
 	inventoryRepo := pgmodel.NewInventoryRepository(db)
 	inventoryCmd := inventoryusecase.NewInventoryCommandUsecase(inventoryRepo, txManager)
 	_ = inventoryCmd // Silence unused warning
+
+	// --- Background Workers ---
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	outboxWorker := worker.NewOutboxWorker(outboxRepo, logBroker, 5*time.Second)
+	go outboxWorker.Start(ctx)
 
 	// --- HTTP Router ---
 	r := gin.Default()
