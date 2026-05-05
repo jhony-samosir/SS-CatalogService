@@ -15,9 +15,9 @@ import (
 	"ss-catalog-service/internal/infrastructure/database"
 	"ss-catalog-service/internal/infrastructure/messaging"
 	pgmodel "ss-catalog-service/internal/repository/postgres"
+	inventoryusecase "ss-catalog-service/internal/usecase/inventory"
 	productusecase "ss-catalog-service/internal/usecase/product"
 	variantusecase "ss-catalog-service/internal/usecase/variant"
-	inventoryusecase "ss-catalog-service/internal/usecase/inventory"
 	"ss-catalog-service/internal/worker"
 )
 
@@ -57,11 +57,9 @@ func main() {
 
 	variantRepo := pgmodel.NewVariantRepository(db)
 	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)
-	_ = variantCmd // Silence unused warning until router update
 
 	inventoryRepo := pgmodel.NewInventoryRepository(db)
 	inventoryCmd := inventoryusecase.NewInventoryCommandUsecase(inventoryRepo, txManager)
-	_ = inventoryCmd // Silence unused warning
 
 	// --- Background Workers ---
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -76,6 +74,7 @@ func main() {
 		ProductCommandUsecase: productCmd,
 		ProductQueryUsecase:   productQry,
 		VariantCommandUsecase: variantCmd,
+		InventoryCommandUsecase: inventoryCmd,
 	})
 
 	// --- Start Server ---

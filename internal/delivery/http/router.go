@@ -12,12 +12,17 @@ type RouterConfig struct {
 	ProductCommandUsecase domain.ProductCommandUsecase
 	ProductQueryUsecase   domain.ProductQueryUsecase
 	VariantCommandUsecase domain.VariantCommandUsecase
+	InventoryCommandUsecase domain.InventoryCommandUsecase
 }
 
 // SetupRouter wires the HTTP routes using already-constructed usecases.
 // Dependency Injection is performed by the caller (main.go), not here.
 func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 	productHandler := v1.NewProductHandler(cfg.ProductCommandUsecase, cfg.ProductQueryUsecase)
+	variantHandler := v1.NewVariantHandler(cfg.VariantCommandUsecase)
+	inventoryHandler := v1.NewInventoryHandler(cfg.InventoryCommandUsecase)
+	sellerHandler := v1.NewSellerHandler()
+	auditHandler := v1.NewAuditHandler()
 
 	api := r.Group("/api/v1")
 	{
@@ -28,10 +33,25 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 			products.GET("/:id", productHandler.GetProduct)
 		}
 
-		variantHandler := v1.NewVariantHandler(cfg.VariantCommandUsecase)
 		variants := api.Group("/variants")
 		{
 			variants.POST("", variantHandler.CreateVariant)
+		}
+
+		inventory := api.Group("/inventory")
+		{
+			inventory.POST("/adjust", inventoryHandler.AdjustStock)
+		}
+
+		sellers := api.Group("/sellers")
+		{
+			sellers.POST("", sellerHandler.RegisterSeller)
+			sellers.GET("/:code", sellerHandler.GetSeller)
+		}
+
+		audit := api.Group("/audit-logs")
+		{
+			audit.GET("", auditHandler.GetAuditLogs)
 		}
 	}
 }
