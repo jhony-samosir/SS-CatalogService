@@ -43,6 +43,12 @@ type Product struct {
 	UnpublishAt  *time.Time
 	IsFeatured   bool
 	WeightGram   *int
+
+	// Aggregated Data
+	Translation *ProductTranslation
+	SEO         *ProductSEO
+	Categories  []Category
+	Tags        []Tag
 }
 
 // Pagination represents a bounded query request.
@@ -56,5 +62,6 @@ type ProductRepository interface {
 	FindAll(ctx context.Context, p Pagination) ([]Product, error)
 	FindByID(ctx context.Context, id int) (*Product, error)
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Product, error)
+	GetProductDetails(ctx context.Context, publicID uuid.UUID, langCode string) (*Product, error)
 	Create(ctx context.Context, product *Product) error
 }

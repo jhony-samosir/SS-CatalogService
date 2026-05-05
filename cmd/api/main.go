@@ -36,7 +36,12 @@ func main() {
 	// --- Dependency Injection (Composition Root) ---
 	productRepo := pgmodel.NewProductRepository(db)
 	productCmd := productusecase.NewProductCommandUsecase(productRepo)
-	productQry := productusecase.NewProductQueryUsecase(productRepo)
+
+	defaultLang := os.Getenv("DEFAULT_LANG")
+	if defaultLang == "" {
+		defaultLang = "id-ID"
+	}
+	productQry := productusecase.NewProductQueryUsecase(productRepo, defaultLang)
 
 	txManager := pgmodel.NewTransactionManager(db)
 	variantRepo := pgmodel.NewVariantRepository(db)

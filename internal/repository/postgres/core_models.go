@@ -64,13 +64,23 @@ type ProductModel struct {
 	IsFeatured   bool          `gorm:"not null;default:false"`
 	WeightGram   *int          `gorm:"null"`
 	SearchVector string        `gorm:"type:tsvector"`
+
+	// Associations
+	Translations []ProductTranslationModel `gorm:"foreignKey:ProductID"`
+	SEO          []ProductSEOModel          `gorm:"foreignKey:ProductID"`
+	Categories   []CategoryModel            `gorm:"many2many:product_categories;foreignKey:ID;joinForeignKey:ProductID;References:ID;joinReferences:CategoryID"`
+	Tags         []TagModel                 `gorm:"many2many:product_tags;foreignKey:ID;joinForeignKey:ProductID;References:ID;joinReferences:TagID"`
+
+	// Optimized for single-query detail fetch
+	Translation *ProductTranslationModel `gorm:"-"`
+	ProductSEO  *ProductSEOModel         `gorm:"-"`
 }
 
 func (ProductModel) TableName() string { return "products" }
 
 // ToDomain mapping functions (simplified for now)
 func (m *ProductModel) ToDomain() domain.Product {
-	return domain.Product{
+	p := domain.Product{
 		BaseEntity: domain.BaseEntity{
 			ID:        m.ID,
 			PublicID:  m.PublicID,
@@ -92,6 +102,111 @@ func (m *ProductModel) ToDomain() domain.Product {
 		IsFeatured:  m.IsFeatured,
 		WeightGram:  m.WeightGram,
 	}
+
+	// Map Translation
+	if m.Translation != nil {
+		t := m.Translation
+		p.Translation = &domain.ProductTranslation{
+			BaseEntity: domain.BaseEntity{
+				ID:        t.ID,
+				PublicID:  t.PublicID,
+				CreatedAt: t.CreatedAt,
+			},
+			ProductID: t.ProductID,
+			LangCode:  t.LangCode,
+			Name:      t.Name,
+			Description: t.Description,
+			ShortDesc:   t.ShortDesc,
+		}
+	} else if len(m.Translations) > 0 {
+		t := m.Translations[0]
+		p.Translation = &domain.ProductTranslation{
+			BaseEntity: domain.BaseEntity{
+				ID:        t.ID,
+				PublicID:  t.PublicID,
+				CreatedAt: t.CreatedAt,
+			},
+			ProductID: t.ProductID,
+			LangCode:  t.LangCode,
+			Name:      t.Name,
+			Description: t.Description,
+			ShortDesc:   t.ShortDesc,
+		}
+	}
+
+	// Map SEO
+	if m.ProductSEO != nil {
+		s := m.ProductSEO
+		p.SEO = &domain.ProductSEO{
+			BaseEntity: domain.BaseEntity{
+				ID:        s.ID,
+				PublicID:  s.PublicID,
+				CreatedAt: s.CreatedAt,
+			},
+			ProductID:      s.ProductID,
+			SEOBase: domain.SEOBase{
+				LangCode:       s.LangCode,
+				Slug:           s.Slug,
+				MetaTitle:      s.MetaTitle,
+				MetaDescription: s.MetaDescription,
+			},
+			CanonicalURL:   s.CanonicalURL,
+			OGImageURL:     s.OGImageURL,
+		}
+	} else if len(m.SEO) > 0 {
+		s := m.SEO[0]
+		p.SEO = &domain.ProductSEO{
+			BaseEntity: domain.BaseEntity{
+				ID:        s.ID,
+				PublicID:  s.PublicID,
+				CreatedAt: s.CreatedAt,
+			},
+			ProductID:      s.ProductID,
+			SEOBase: domain.SEOBase{
+				LangCode:       s.LangCode,
+				Slug:           s.Slug,
+				MetaTitle:      s.MetaTitle,
+				MetaDescription: s.MetaDescription,
+			},
+			CanonicalURL:   s.CanonicalURL,
+			OGImageURL:     s.OGImageURL,
+		}
+	}
+
+	// Map Categories
+	if len(m.Categories) > 0 {
+		p.Categories = make([]domain.Category, len(m.Categories))
+		for i, c := range m.Categories {
+			p.Categories[i] = domain.Category{
+				BaseEntity: domain.BaseEntity{
+					ID:        c.ID,
+					PublicID:  c.PublicID,
+					CreatedAt: c.CreatedAt,
+				},
+				Name:        c.Name,
+				Slug:        c.Slug,
+				Description: c.Description,
+			}
+		}
+	}
+
+	// Map Tags
+	if len(m.Tags) > 0 {
+		p.Tags = make([]domain.Tag, len(m.Tags))
+		for i, t := range m.Tags {
+			p.Tags[i] = domain.Tag{
+				BaseEntity: domain.BaseEntity{
+					ID:        t.ID,
+					PublicID:  t.PublicID,
+					CreatedAt: t.CreatedAt,
+				},
+				Name: t.Name,
+				Slug: t.Slug,
+			}
+		}
+	}
+
+	return p
 }
 
 func FromProductDomain(p *domain.Product) *ProductModel {
