@@ -3,7 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
-	"os"
+	"ss-catalog-service/config"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -13,23 +13,9 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Config holds the database connection configuration.
-type Config struct {
-	DSN string
-}
-
-// NewConfig reads database configuration from environment variables.
-func NewConfig() Config {
-	dsn := os.Getenv("DB_DSN")
-	if dsn == "" {
-		log.Fatal("DB_DSN environment variable is not set")
-	}
-	return Config{DSN: dsn}
-}
-
 // NewPostgresDB creates and validates a new GORM PostgreSQL connection.
 // It does NOT perform migrations — migration is the responsibility of the caller (main.go).
-func NewPostgresDB(cfg Config) (*gorm.DB, error) {
+func NewPostgresDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	db, err := gorm.Open(gormpostgres.Open(cfg.DSN), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})

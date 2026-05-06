@@ -3,9 +3,12 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"ss-catalog-service/internal/domain"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -43,10 +46,7 @@ func (r *productRepository) FindByID(ctx context.Context, id int) (*domain.Produ
 	db := getDB(ctx, r.db)
 
 	if err := db.First(&model, id).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
+		return nil, mapDBError(err)
 	}
 	product := model.ToDomain()
 	return &product, nil
@@ -57,10 +57,7 @@ func (r *productRepository) FindByPublicID(ctx context.Context, publicID uuid.UU
 	db := getDB(ctx, r.db)
 
 	if err := db.Where("public_id = ?", publicID).First(&model).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
+		return nil, mapDBError(err)
 	}
 	product := model.ToDomain()
 	return &product, nil
@@ -145,10 +142,34 @@ func (r *productRepository) Create(ctx context.Context, p *domain.Product) error
 	db := getDB(ctx, r.db)
 
 	if err := db.Create(model).Error; err != nil {
-		return err
+		return mapDBError(err)
 	}
 	// Update domain entity with generated values (like auto-increment ID)
 	p.ID = model.ID
 	p.CreatedAt = model.CreatedAt
 	return nil
+}
+
+// mapDBError translates database-specific errors into domain errors.
+func mapDBError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return domain.ErrProductNotFound
+	}
+
+	// Check for Postgres Unique Constraint Violation (Code 23505)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return domain.ErrDuplicateProduct
+	}
+
+	// General GORM or connection errors
+	if strings.Contains(err.Error(), "duplicate key value") {
+		return domain.ErrDuplicateProduct
+	}
+
+	return fmt.Errorf("%w: %v", domain.ErrInternalDatabase, err)
 }

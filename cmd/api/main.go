@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 
+	"ss-catalog-service/config"
 	apphttp "ss-catalog-service/internal/delivery/http"
 	"ss-catalog-service/internal/infrastructure/database"
 	"ss-catalog-service/internal/infrastructure/messaging"
@@ -22,14 +21,11 @@ import (
 )
 
 func main() {
-	// Load .env (non-fatal, env vars may come from OS in production)
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found, reading from system environment")
-	}
+	// --- Load Centralized Config ---
+	cfg := config.Load()
 
 	// --- Infrastructure: Database ---
-	dbCfg := database.NewConfig()
-	db, err := database.NewPostgresDB(dbCfg)
+	db, err := database.NewPostgresDB(cfg.Database)
 	if err != nil {
 		log.Fatalf("Database initialization failed: %v", err)
 	}
@@ -48,12 +44,7 @@ func main() {
 
 	productRepo := pgmodel.NewProductRepository(db)
 	productCmd := productusecase.NewProductCommandUsecase(productRepo, outboxRepo, txManager)
-
-	defaultLang := os.Getenv("DEFAULT_LANG")
-	if defaultLang == "" {
-		defaultLang = "id-ID"
-	}
-	productQry := productusecase.NewProductQueryUsecase(productRepo, defaultLang)
+	productQry := productusecase.NewProductQueryUsecase(productRepo, cfg.App.DefaultLang)
 
 	variantRepo := pgmodel.NewVariantRepository(db)
 	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)
@@ -78,10 +69,7 @@ func main() {
 	})
 
 	// --- Start Server ---
-	port := os.Getenv("APP_PORT")
-	if port == "" {
-		port = "8081"
-	}
+	port := cfg.App.Port
 
 	log.Printf("🚀 Server running on port %s", port)
 	if err := r.Run(":" + port); err != nil {

@@ -9,7 +9,9 @@ import (
 
 // Sentinel Errors
 var (
-	ErrProductNotFound = errors.New("product not found")
+	ErrProductNotFound  = errors.New("product not found")
+	ErrDuplicateProduct = errors.New("product already exists")
+	ErrInternalDatabase = errors.New("internal database error")
 )
 
 // --- Usecase Interfaces ---
