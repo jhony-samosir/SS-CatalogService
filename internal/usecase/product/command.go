@@ -44,6 +44,11 @@ func (u *productCommandUsecase) CreateProduct(ctx context.Context, payload domai
 		return nil, domain.ErrUnauthorized
 	}
 
+	// Validation
+	if payload.Name == "" {
+		return nil, domain.ErrInvalidProductName
+	}
+
 	var product *domain.Product
 
 	err := u.txManager.WithTransaction(ctx, func(txCtx context.Context) error {

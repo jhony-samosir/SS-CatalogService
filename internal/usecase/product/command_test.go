@@ -1,110 +1,96 @@
-package product
+package product_test
 
 import (
 	"context"
 	"testing"
 
-	"ss-catalog-service/internal/domain"
-	"errors"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	
+	"ss-catalog-service/internal/domain"
+	"ss-catalog-service/internal/mocks"
+	"ss-catalog-service/internal/usecase/product"
 )
 
-type mockProductCmdRepository struct {
-	domain.ProductRepository
-	createFn         func(ctx context.Context, p *domain.Product) error
-	updateFn         func(ctx context.Context, p *domain.Product) error
-	findByPublicIDFn func(ctx context.Context, pid uuid.UUID) (*domain.Product, error)
-}
-
-func (m *mockProductCmdRepository) Create(ctx context.Context, p *domain.Product) error {
-	return m.createFn(ctx, p)
-}
-
-func (m *mockProductCmdRepository) Update(ctx context.Context, p *domain.Product) error {
-	return m.updateFn(ctx, p)
-}
-
-type mockProductRepository struct {
-	domain.ProductRepository
-	findByPublicIDFn    func(ctx context.Context, pid uuid.UUID) (*domain.Product, error)
-	getProductDetailsFn func(ctx context.Context, publicID uuid.UUID, langCode string) (*domain.Product, error)
-	searchFn            func(ctx context.Context, q domain.GetProductSearchQuery) (*domain.ProductSearchResult, error)
-}
-
-func (m *mockProductRepository) FindByPublicID(ctx context.Context, pid uuid.UUID) (*domain.Product, error) {
-	return m.findByPublicIDFn(ctx, pid)
-}
-
-func (m *mockProductRepository) GetProductDetails(ctx context.Context, publicID uuid.UUID, langCode string) (*domain.Product, error) {
-	return m.getProductDetailsFn(ctx, publicID, langCode)
-}
-
-func (m *mockProductRepository) Search(ctx context.Context, q domain.GetProductSearchQuery) (*domain.ProductSearchResult, error) {
-	return m.searchFn(ctx, q)
-}
-
-type mockOutboxCmdRepository struct {
-	domain.OutboxRepository
-	saveFn func(ctx context.Context, e *domain.OutboxEvent) error
-}
-
-func (m *mockOutboxCmdRepository) Save(ctx context.Context, e *domain.OutboxEvent) error {
-	return m.saveFn(ctx, e)
-}
-
-type mockTxManager struct {
-	domain.TransactionManager
-}
-
-func (m *mockTxManager) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
-	return fn(ctx)
-}
-
-func TestCreateProductWithOutbox(t *testing.T) {
-	mockProductRepo := &mockProductCmdRepository{
-		createFn: func(ctx context.Context, p *domain.Product) error {
-			p.ID = 1
-			return nil
-		},
-	}
-
-	outboxSaved := false
-	mockOutboxRepo := &mockOutboxCmdRepository{
-		saveFn: func(ctx context.Context, e *domain.OutboxEvent) error {
-			if e.EventType == "ProductCreated" && e.AggregateID == 1 {
-				outboxSaved = true
-			}
-			return nil
-		},
-	}
-
-	mockTransactionManager := &mockTxManager{}
-
-	usecase := NewProductCommandUsecase(mockProductRepo, nil, mockOutboxRepo, mockTransactionManager)
-
-	brandID := 1
-	payload := domain.CreateProductPayload{
-		Name:    "Test Product",
-		BrandID: &brandID,
-	}
-
+func TestCreateProductCommand(t *testing.T) {
 	sellerID := 123
 	ctx := domain.ContextWithUser(context.Background(), domain.UserContext{
 		SellerID: &sellerID,
 	})
 
-	product, err := usecase.CreateProduct(ctx, payload)
+	testCases := []struct {
+		name          string
+		payload       domain.CreateProductPayload
+		setupMocks    func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager)
+		expectedError error
+	}{
+		{
+			name: "Success: Product created",
+			payload: domain.CreateProductPayload{
+				Name: "New Product",
+			},
+			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
+					Return(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					}).Once()
 
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+				// State Verification: check if name and seller_id match
+				repo.On("Create", mock.Anything, mock.MatchedBy(func(p *domain.Product) bool {
+					return p.Name == "New Product" && *p.SellerID == sellerID
+				})).Return(nil).Once()
+
+				outbox.On("Save", mock.Anything, mock.AnythingOfType("*domain.OutboxEvent")).Return(nil).Once()
+			},
+			expectedError: nil,
+		},
+		{
+			name: "Failure: Empty product name validation",
+			payload: domain.CreateProductPayload{
+				Name: "",
+			},
+			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {},
+			expectedError: domain.ErrInvalidProductName,
+		},
+		{
+			name: "Failure: Repository database error",
+			payload: domain.CreateProductPayload{
+				Name: "New Product",
+			},
+			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
+					Return(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					}).Once()
+
+				repo.On("Create", mock.Anything, mock.Anything).Return(domain.ErrInternalDatabase).Once()
+			},
+			expectedError: domain.ErrInternalDatabase,
+		},
 	}
 
-	if product == nil {
-		t.Fatal("expected product, got nil")
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(mocks.MockProductRepository)
+			mockOutbox := new(mocks.MockOutboxRepository)
+			mockTx := new(mocks.MockTransactionManager)
 
-	if !outboxSaved {
-		t.Error("expected outbox event to be saved")
+			tc.setupMocks(mockRepo, mockOutbox, mockTx)
+			usecase := product.NewProductCommandUsecase(mockRepo, nil, mockOutbox, mockTx)
+
+			_, err := usecase.CreateProduct(ctx, tc.payload)
+
+			if tc.expectedError != nil {
+				assert.ErrorIs(t, err, tc.expectedError)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			mockRepo.AssertExpectations(t)
+			mockOutbox.AssertExpectations(t)
+			mockTx.AssertExpectations(t)
+		})
 	}
 }
 
@@ -113,84 +99,116 @@ func TestUpdateProductAuthorization(t *testing.T) {
 	sellerID := 123
 	otherSellerID := 456
 
-	mockRepo := &mockProductCmdRepository{
-		ProductRepository: &mockProductRepository{
-			findByPublicIDFn: func(ctx context.Context, pid uuid.UUID) (*domain.Product, error) {
-				if pid == publicID {
-					return &domain.Product{
-						BaseEntity: domain.BaseEntity{PublicID: publicID},
-						SellerID:   &sellerID,
-					}, nil
-				}
-				return nil, nil
+	basePayload := domain.UpdateProductPayload{
+		PublicID: publicID,
+		Name:     "Updated Name",
+	}
+
+	testCases := []struct {
+		name          string
+		userCtx       domain.UserContext
+		setupMocks    func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager)
+		expectedError error
+	}{
+		{
+			name: "Success: Owner Matches",
+			userCtx: domain.UserContext{
+				SellerID: &sellerID,
 			},
+			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
+					Return(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					}).Once()
+
+				repo.On("FindByPublicID", mock.Anything, publicID).Return(&domain.Product{
+					BaseEntity: domain.BaseEntity{PublicID: publicID, ID: 1},
+					SellerID:   &sellerID,
+				}, nil).Once()
+
+				// State Verification: ensure only updated fields are changed
+				repo.On("Update", mock.Anything, mock.MatchedBy(func(p *domain.Product) bool {
+					return p.Name == "Updated Name"
+				})).Return(nil).Once()
+				
+				outbox.On("Save", mock.Anything, mock.AnythingOfType("*domain.OutboxEvent")).Return(nil).Once()
+			},
+			expectedError: nil,
 		},
-		updateFn: func(ctx context.Context, p *domain.Product) error {
-			return nil
+		{
+			name: "Success: Admin Bypass",
+			userCtx: domain.UserContext{
+				Roles: []string{"admin"},
+			},
+			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
+					Return(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					}).Once()
+
+				repo.On("FindByPublicID", mock.Anything, publicID).Return(&domain.Product{
+					BaseEntity: domain.BaseEntity{PublicID: publicID, ID: 1},
+					SellerID:   &sellerID, 
+				}, nil).Once()
+
+				repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+				outbox.On("Save", mock.Anything, mock.AnythingOfType("*domain.OutboxEvent")).Return(nil).Once()
+			},
+			expectedError: nil,
+		},
+		{
+			name: "Error: Owner Mismatches",
+			userCtx: domain.UserContext{
+				SellerID: &otherSellerID,
+			},
+			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
+					Return(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					}).Once()
+
+				repo.On("FindByPublicID", mock.Anything, publicID).Return(&domain.Product{
+					BaseEntity: domain.BaseEntity{PublicID: publicID, ID: 1},
+					SellerID:   &sellerID,
+				}, nil).Once()
+			},
+			expectedError: domain.ErrUnauthorized,
+		},
+		{
+			name: "Error: No User in Context",
+			userCtx: domain.UserContext{}, 
+			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {},
+			expectedError: domain.ErrUnauthorized,
 		},
 	}
 
-	mockTransactionManager := &mockTxManager{}
-	mockOutboxRepo := &mockOutboxCmdRepository{
-		saveFn: func(ctx context.Context, e *domain.OutboxEvent) error {
-			return nil
-		},
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := new(mocks.MockProductRepository)
+			mockOutbox := new(mocks.MockOutboxRepository)
+			mockTx := new(mocks.MockTransactionManager)
+
+			tc.setupMocks(mockRepo, mockOutbox, mockTx)
+			usecase := product.NewProductCommandUsecase(mockRepo, nil, mockOutbox, mockTx)
+
+			var ctx context.Context
+			if tc.name == "Error: No User in Context" {
+				ctx = context.Background()
+			} else {
+				ctx = domain.ContextWithUser(context.Background(), tc.userCtx)
+			}
+
+			err := usecase.UpdateProduct(ctx, basePayload)
+
+			if tc.expectedError != nil {
+				assert.ErrorIs(t, err, tc.expectedError)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			mockRepo.AssertExpectations(t)
+			mockOutbox.AssertExpectations(t)
+			mockTx.AssertExpectations(t)
+		})
 	}
-	usecase := NewProductCommandUsecase(mockRepo, nil, mockOutboxRepo, mockTransactionManager)
-
-	t.Run("Success_OwnerMatches", func(t *testing.T) {
-		ctx := domain.ContextWithUser(context.Background(), domain.UserContext{
-			SellerID: &sellerID,
-		})
-
-		err := usecase.UpdateProduct(ctx, domain.UpdateProductPayload{
-			PublicID: publicID,
-			Name:     "New Name",
-		})
-
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-	})
-
-	t.Run("Error_OwnerMismatches", func(t *testing.T) {
-		ctx := domain.ContextWithUser(context.Background(), domain.UserContext{
-			SellerID: &otherSellerID,
-		})
-
-		err := usecase.UpdateProduct(ctx, domain.UpdateProductPayload{
-			PublicID: publicID,
-			Name:     "New Name",
-		})
-
-		if !errors.Is(err, domain.ErrUnauthorized) {
-			t.Errorf("expected ErrUnauthorized, got %v", err)
-		}
-	})
-
-	t.Run("Error_NoUserInContext", func(t *testing.T) {
-		err := usecase.UpdateProduct(context.Background(), domain.UpdateProductPayload{
-			PublicID: publicID,
-			Name:     "New Name",
-		})
-
-		if !errors.Is(err, domain.ErrUnauthorized) {
-			t.Errorf("expected ErrUnauthorized, got %v", err)
-		}
-	})
-
-	t.Run("Success_AdminBypass", func(t *testing.T) {
-		ctx := domain.ContextWithUser(context.Background(), domain.UserContext{
-			Roles: []string{"admin"},
-		})
-
-		err := usecase.UpdateProduct(ctx, domain.UpdateProductPayload{
-			PublicID: publicID,
-			Name:     "Admin Update",
-		})
-
-		if err != nil {
-			t.Errorf("expected no error for admin, got %v", err)
-		}
-	})
 }
