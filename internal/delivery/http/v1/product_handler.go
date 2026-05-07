@@ -1,10 +1,12 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 	"ss-catalog-service/internal/domain"
 
 	"github.com/gin-gonic/gin"
@@ -128,5 +130,76 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 		"data":   response,
 		"limit":  limit,
 		"offset": offset,
+	})
+}
+
+// SearchProducts handles GET /api/v1/products/search
+func (h *ProductHandler) SearchProducts(c *gin.Context) {
+	q := domain.GetProductSearchQuery{}
+
+	if kw := c.Query("q"); kw != "" {
+		q.Keyword = &kw
+	}
+	if cs := c.Query("category_slug"); cs != "" {
+		q.CategorySlug = &cs
+	}
+	if bid := c.Query("brand_id"); bid != "" {
+		id, err := strconv.Atoi(bid)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "brand_id must be a valid integer"})
+			return
+		}
+		q.BrandID = &id
+	}
+	if minP := c.Query("min_price"); minP != "" {
+		v, err := strconv.ParseFloat(minP, 64)
+		if err != nil || v < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid min_price"})
+			return
+		}
+		q.MinPrice = &v
+	}
+	if maxP := c.Query("max_price"); maxP != "" {
+		v, err := strconv.ParseFloat(maxP, 64)
+		if err != nil || v < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid max_price"})
+			return
+		}
+		q.MaxPrice = &v
+	}
+	if cur := c.Query("cursor"); cur != "" {
+		q.Cursor = &cur
+	}
+	if lim, err := strconv.Atoi(c.DefaultQuery("limit", "20")); err == nil {
+		q.Limit = lim
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	result, err := h.queryUsecase.SearchProducts(ctx, q)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidCursor) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired pagination cursor"})
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidInput) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		log.Printf("ERROR [SearchProducts]: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "search failed"})
+		return
+	}
+
+	items := make([]ProductResponse, len(result.Items))
+	for i := range result.Items {
+		items[i] = toProductResponse(&result.Items[i])
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":        items,
+		"next_cursor": result.NextCursor,
+		"has_more":    result.NextCursor != nil,
 	})
 }

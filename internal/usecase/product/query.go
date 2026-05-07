@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ss-catalog-service/internal/domain"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -92,4 +93,32 @@ func (u *productQueryUsecase) GetProductDetails(ctx context.Context, query domai
 	}
 
 	return resp, nil
+}
+
+func (u *productQueryUsecase) SearchProducts(ctx context.Context, q domain.GetProductSearchQuery) (*domain.ProductSearchResult, error) {
+	// --- Normalization & Validation ---
+
+	// Trim keyword whitespace
+	if q.Keyword != nil {
+		trimmed := strings.TrimSpace(*q.Keyword)
+		q.Keyword = &trimmed
+	}
+
+	// Limit normalization (1-100, default 20)
+	if q.Limit <= 0 {
+		q.Limit = 20
+	} else if q.Limit > 100 {
+		q.Limit = 100
+	}
+
+	// Price range cross-validation
+	if q.MinPrice != nil && q.MaxPrice != nil && *q.MinPrice > *q.MaxPrice {
+		return nil, fmt.Errorf("%w: min_price cannot be greater than max_price", domain.ErrInvalidInput)
+	}
+
+	result, err := u.repo.Search(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("productQueryUsecase.SearchProducts: %w", err)
+	}
+	return result, nil
 }

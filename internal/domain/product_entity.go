@@ -51,12 +51,6 @@ type Product struct {
 	Tags        []Tag
 }
 
-// Pagination represents a bounded query request.
-type Pagination struct {
-	Limit  int
-	Offset int
-}
-
 // ProductRepository defines the contract for product data access.
 type ProductRepository interface {
 	FindAll(ctx context.Context, p Pagination) ([]Product, error)
@@ -64,4 +58,5 @@ type ProductRepository interface {
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Product, error)
 	GetProductDetails(ctx context.Context, publicID uuid.UUID, langCode string) (*Product, error)
 	Create(ctx context.Context, product *Product) error
+	Search(ctx context.Context, q GetProductSearchQuery) (*ProductSearchResult, error)
 }

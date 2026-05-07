@@ -30,6 +30,8 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 		{
 			products.POST("", productHandler.CreateProduct)
 			products.GET("", productHandler.GetProducts)
+			// NOTE: /search must be registered BEFORE /:id to avoid static route collision in Gin
+			products.GET("/search", productHandler.SearchProducts)
 			products.GET("/:id", productHandler.GetProduct)
 		}
 
