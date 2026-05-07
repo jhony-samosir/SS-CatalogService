@@ -29,6 +29,13 @@ type ProductQueryUsecase interface {
 	SearchProducts(ctx context.Context, q GetProductSearchQuery) (*ProductSearchResult, error)
 }
 
+// ProductCacheRepository defines the contract for in-memory caching operations.
+type ProductCacheRepository interface {
+	GetProductDetails(ctx context.Context, publicID uuid.UUID, langCode string) (*ProductDetailsResponse, error)
+	SetProductDetails(ctx context.Context, publicID uuid.UUID, langCode string, product *ProductDetailsResponse) error
+	InvalidateProductDetails(ctx context.Context, publicID uuid.UUID) error
+}
+
 // --- Payload DTOs ---
 
 // GetProductDetailsQuery represents the input for fetching localized product details.

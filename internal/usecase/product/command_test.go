@@ -53,7 +53,7 @@ func TestCreateProductWithOutbox(t *testing.T) {
 
 	mockTransactionManager := &mockTxManager{}
 
-	usecase := NewProductCommandUsecase(mockProductRepo, mockOutboxRepo, mockTransactionManager)
+	usecase := NewProductCommandUsecase(mockProductRepo, nil, mockOutboxRepo, mockTransactionManager)
 
 	brandID := 1
 	payload := domain.CreateProductPayload{

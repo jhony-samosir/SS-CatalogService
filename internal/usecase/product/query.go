@@ -7,17 +7,26 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"golang.org/x/sync/singleflight"
 )
 
 type productQueryUsecase struct {
 	repo        domain.ProductRepository
+	cacheRepo   domain.ProductCacheRepository
+	sfGroup     *singleflight.Group
 	defaultLang string
 }
 
 // NewProductQueryUsecase creates a new instance of product query business logic.
-func NewProductQueryUsecase(repo domain.ProductRepository, defaultLang string) domain.ProductQueryUsecase {
+func NewProductQueryUsecase(
+	repo domain.ProductRepository,
+	cacheRepo domain.ProductCacheRepository,
+	defaultLang string,
+) domain.ProductQueryUsecase {
 	return &productQueryUsecase{
 		repo:        repo,
+		cacheRepo:   cacheRepo,
+		sfGroup:     &singleflight.Group{},
 		defaultLang: defaultLang,
 	}
 }
@@ -47,49 +56,76 @@ func (u *productQueryUsecase) GetProductDetails(ctx context.Context, query domai
 		langCode = u.defaultLang
 	}
 
-	product, err := u.repo.GetProductDetails(ctx, query.PublicID, langCode)
+	// 1. Try Cache
+	if u.cacheRepo != nil {
+		cached, err := u.cacheRepo.GetProductDetails(ctx, query.PublicID, langCode)
+		if err == nil && cached != nil {
+			return cached, nil
+		}
+	}
+
+	// 2. Cache Miss - Use Singleflight to prevent stampede
+	key := fmt.Sprintf("get_product_details:%s:%s", query.PublicID.String(), langCode)
+	val, err, _ := u.sfGroup.Do(key, func() (interface{}, error) {
+		product, err := u.repo.GetProductDetails(ctx, query.PublicID, langCode)
+		if err != nil {
+			return nil, fmt.Errorf("productQueryUsecase.GetProductDetails: %w", err)
+		}
+		if product == nil {
+			return nil, domain.ErrProductNotFound
+		}
+
+		// Mapping to DTO
+		resp := &domain.ProductDetailsResponse{
+			PublicID:  product.PublicID,
+			BasePrice: 0,
+			Status:    string(product.Status),
+		}
+
+		if product.Translation != nil {
+			resp.Name = product.Translation.Name
+			resp.Description = product.Translation.Description
+			resp.ShortDesc = product.Translation.ShortDesc
+		} else {
+			resp.Name = product.Name
+			resp.Description = product.Description
+			resp.ShortDesc = product.ShortDesc
+		}
+
+		if product.SEO != nil {
+			resp.MetaTitle = product.SEO.MetaTitle
+			resp.MetaDescription = product.SEO.MetaDescription
+		}
+
+		if len(product.Categories) > 0 {
+			resp.Categories = make([]string, len(product.Categories))
+			for i, c := range product.Categories {
+				resp.Categories[i] = c.Name
+			}
+		}
+
+		if len(product.Tags) > 0 {
+			resp.Tags = make([]string, len(product.Tags))
+			for i, t := range product.Tags {
+				resp.Tags[i] = t.Name
+			}
+		}
+
+		// 3. Populate Cache
+		if u.cacheRepo != nil {
+			_ = u.cacheRepo.SetProductDetails(ctx, query.PublicID, langCode, resp)
+		}
+
+		return resp, nil
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("productQueryUsecase.GetProductDetails: %w", err)
-	}
-	if product == nil {
-		return nil, domain.ErrProductNotFound
+		return nil, err
 	}
 
-	// Mapping to DTO
-	resp := &domain.ProductDetailsResponse{
-		PublicID:  product.PublicID,
-		BasePrice: 0, // In a real app, this might come from a pricing service or variant
-		Status:    string(product.Status),
-	}
-
-	if product.Translation != nil {
-		resp.Name = product.Translation.Name
-		resp.Description = product.Translation.Description
-		resp.ShortDesc = product.Translation.ShortDesc
-	} else {
-		// Fallback to base product fields if translation is missing
-		resp.Name = product.Name
-		resp.Description = product.Description
-		resp.ShortDesc = product.ShortDesc
-	}
-
-	if product.SEO != nil {
-		resp.MetaTitle = product.SEO.MetaTitle
-		resp.MetaDescription = product.SEO.MetaDescription
-	}
-
-	if len(product.Categories) > 0 {
-		resp.Categories = make([]string, len(product.Categories))
-		for i, c := range product.Categories {
-			resp.Categories[i] = c.Name
-		}
-	}
-
-	if len(product.Tags) > 0 {
-		resp.Tags = make([]string, len(product.Tags))
-		for i, t := range product.Tags {
-			resp.Tags[i] = t.Name
-		}
+	resp, ok := val.(*domain.ProductDetailsResponse)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type from singleflight for key: %s", key)
 	}
 
 	return resp, nil

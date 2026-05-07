@@ -46,7 +46,7 @@ func TestGetProductDetails(t *testing.T) {
 			},
 		}
 
-		usecase := NewProductQueryUsecase(mockRepo, "id-ID")
+		usecase := NewProductQueryUsecase(mockRepo, nil, "id-ID")
 		resp, err := usecase.GetProductDetails(context.Background(), domain.GetProductDetailsQuery{
 			PublicID: publicID,
 			LangCode: langCode,
@@ -72,7 +72,7 @@ func TestGetProductDetails(t *testing.T) {
 			},
 		}
 
-		usecase := NewProductQueryUsecase(mockRepo, "id-ID")
+		usecase := NewProductQueryUsecase(mockRepo, nil, "id-ID")
 		_, err := usecase.GetProductDetails(context.Background(), domain.GetProductDetailsQuery{
 			PublicID: publicID,
 			LangCode: langCode,
@@ -94,7 +94,7 @@ func TestSearchProducts(t *testing.T) {
 			},
 		}
 
-		usecase := NewProductQueryUsecase(mockRepo, "en")
+		usecase := NewProductQueryUsecase(mockRepo, nil, "en")
 		res, err := usecase.SearchProducts(context.Background(), domain.GetProductSearchQuery{})
 
 		if err != nil {
@@ -116,7 +116,7 @@ func TestSearchProducts(t *testing.T) {
 			},
 		}
 
-		usecase := NewProductQueryUsecase(mockRepo, "en")
+		usecase := NewProductQueryUsecase(mockRepo, nil, "en")
 		_, _ = usecase.SearchProducts(context.Background(), domain.GetProductSearchQuery{Keyword: &keyword})
 	})
 
@@ -125,7 +125,7 @@ func TestSearchProducts(t *testing.T) {
 		max := 50.0
 		mockRepo := &mockProductRepository{}
 
-		usecase := NewProductQueryUsecase(mockRepo, "en")
+		usecase := NewProductQueryUsecase(mockRepo, nil, "en")
 		_, err := usecase.SearchProducts(context.Background(), domain.GetProductSearchQuery{
 			MinPrice: &min,
 			MaxPrice: &max,
@@ -148,7 +148,7 @@ func TestSearchProducts(t *testing.T) {
 			},
 		}
 
-		usecase := NewProductQueryUsecase(mockRepo, "en")
+		usecase := NewProductQueryUsecase(mockRepo, nil, "en")
 		_, _ = usecase.SearchProducts(context.Background(), domain.GetProductSearchQuery{Limit: 999})
 	})
 }

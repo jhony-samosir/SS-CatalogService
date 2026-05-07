@@ -11,6 +11,7 @@ import (
 
 	"ss-catalog-service/config"
 	apphttp "ss-catalog-service/internal/delivery/http"
+	"ss-catalog-service/internal/infrastructure/cache"
 	"ss-catalog-service/internal/infrastructure/database"
 	"ss-catalog-service/internal/infrastructure/messaging"
 	pgmodel "ss-catalog-service/internal/repository/postgres"
@@ -43,8 +44,20 @@ func main() {
 	outboxRepo := pgmodel.NewOutboxRepository(db)
 
 	productRepo := pgmodel.NewProductRepository(db)
-	productCmd := productusecase.NewProductCommandUsecase(productRepo, outboxRepo, txManager)
-	productQry := productusecase.NewProductQueryUsecase(productRepo, cfg.App.DefaultLang)
+	
+	// Define active languages for cache invalidation (Opsi A)
+	activeLangs := []string{"id-ID", "en-US"}
+	
+	baseCacheRepo, err := cache.NewProductCacheRepository(10*time.Minute, activeLangs)
+	if err != nil {
+		log.Fatalf("Cache initialization failed: %v", err)
+	}
+	
+	// Wrap with Prometheus metrics decorator
+	productCacheRepo := cache.NewProductCacheMetricsDecorator(baseCacheRepo)
+
+	productCmd := productusecase.NewProductCommandUsecase(productRepo, productCacheRepo, outboxRepo, txManager)
+	productQry := productusecase.NewProductQueryUsecase(productRepo, productCacheRepo, cfg.App.DefaultLang)
 
 	variantRepo := pgmodel.NewVariantRepository(db)
 	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)

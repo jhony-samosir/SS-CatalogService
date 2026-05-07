@@ -17,6 +17,7 @@ import (
 
 type productCommandUsecase struct {
 	repo       domain.ProductRepository
+	cacheRepo  domain.ProductCacheRepository
 	outboxRepo domain.OutboxRepository
 	txManager  domain.TransactionManager
 }
@@ -24,11 +25,13 @@ type productCommandUsecase struct {
 // NewProductCommandUsecase creates a new instance of product command business logic.
 func NewProductCommandUsecase(
 	repo domain.ProductRepository,
+	cacheRepo domain.ProductCacheRepository,
 	outboxRepo domain.OutboxRepository,
 	txManager domain.TransactionManager,
 ) domain.ProductCommandUsecase {
 	return &productCommandUsecase{
 		repo:       repo,
+		cacheRepo:  cacheRepo,
 		outboxRepo: outboxRepo,
 		txManager:  txManager,
 	}
