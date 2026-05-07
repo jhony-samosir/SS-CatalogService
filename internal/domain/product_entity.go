@@ -58,5 +58,6 @@ type ProductRepository interface {
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Product, error)
 	GetProductDetails(ctx context.Context, publicID uuid.UUID, langCode string) (*Product, error)
 	Create(ctx context.Context, product *Product) error
+	Update(ctx context.Context, product *Product) error
 	Search(ctx context.Context, q GetProductSearchQuery) (*ProductSearchResult, error)
 }

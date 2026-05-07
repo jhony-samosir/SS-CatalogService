@@ -12,6 +12,7 @@ var (
 	ErrProductNotFound  = errors.New("product not found")
 	ErrDuplicateProduct = errors.New("product already exists")
 	ErrInternalDatabase = errors.New("internal database error")
+	ErrUnauthorized     = errors.New("unauthorized: ownership verification failed")
 )
 
 // --- Usecase Interfaces ---
@@ -19,6 +20,7 @@ var (
 // ProductCommandUsecase defines the contract for write operations on products.
 type ProductCommandUsecase interface {
 	CreateProduct(ctx context.Context, payload CreateProductPayload) (*Product, error)
+	UpdateProduct(ctx context.Context, payload UpdateProductPayload) error
 }
 
 // ProductQueryUsecase defines the contract for read operations on products.
@@ -62,4 +64,12 @@ type ProductDetailsResponse struct {
 type CreateProductPayload struct {
 	Name    string
 	BrandID *int
+}
+
+// UpdateProductPayload represents the data needed to update an existing product.
+type UpdateProductPayload struct {
+	PublicID    uuid.UUID
+	Name        string
+	Description string
+	Status      ProductStatus
 }

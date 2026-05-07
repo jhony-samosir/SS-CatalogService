@@ -10,19 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type mockProductRepository struct {
-	domain.ProductRepository
-	getProductDetailsFn func(ctx context.Context, publicID uuid.UUID, langCode string) (*domain.Product, error)
-	searchFn            func(ctx context.Context, q domain.GetProductSearchQuery) (*domain.ProductSearchResult, error)
-}
-
-func (m *mockProductRepository) GetProductDetails(ctx context.Context, publicID uuid.UUID, langCode string) (*domain.Product, error) {
-	return m.getProductDetailsFn(ctx, publicID, langCode)
-}
-
-func (m *mockProductRepository) Search(ctx context.Context, q domain.GetProductSearchQuery) (*domain.ProductSearchResult, error) {
-	return m.searchFn(ctx, q)
-}
 
 func TestGetProductDetails(t *testing.T) {
 	// ... (existing TestGetProductDetails)

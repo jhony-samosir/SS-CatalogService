@@ -32,6 +32,12 @@ type CreateProductRequest struct {
 	BrandID *int   `json:"brand_id,omitempty"`
 }
 
+type UpdateProductRequest struct {
+	Name        string               `json:"name" binding:"required,min=3,max=500"`
+	Description string               `json:"description"`
+	Status      domain.ProductStatus `json:"status" binding:"required"`
+}
+
 type ProductResponse struct {
 	ID      uuid.UUID `json:"id"`
 	Name    string    `json:"name"`
@@ -69,6 +75,44 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, toProductResponse(product))
+}
+
+// UpdateProduct handles PUT /api/v1/products/:id
+func (h *ProductHandler) UpdateProduct(c *gin.Context) {
+	publicID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid product id format"})
+		return
+	}
+
+	var req UpdateProductRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.commandUsecase.UpdateProduct(c.Request.Context(), domain.UpdateProductPayload{
+		PublicID:    publicID,
+		Name:        req.Name,
+		Description: req.Description,
+		Status:      req.Status,
+	})
+
+	if err != nil {
+		if errors.Is(err, domain.ErrProductNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "product not found"})
+			return
+		}
+		if errors.Is(err, domain.ErrUnauthorized) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "you do not have permission to update this product"})
+			return
+		}
+		log.Printf("ERROR [UpdateProduct]: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update product"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "product updated successfully"})
 }
 
 // GetProduct handles GET /api/v1/products/:id

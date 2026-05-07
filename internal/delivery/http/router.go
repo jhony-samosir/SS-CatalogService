@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	v1 "ss-catalog-service/internal/delivery/http/v1"
 	"ss-catalog-service/internal/domain"
+	"ss-catalog-service/internal/delivery/http/middleware"
 )
 
 // RouterConfig holds all pre-built usecases injected from main.go.
@@ -25,10 +26,12 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 	auditHandler := v1.NewAuditHandler()
 
 	api := r.Group("/api/v1")
+	api.Use(middleware.AuthMiddleware())
 	{
 		products := api.Group("/products")
 		{
-			products.POST("", productHandler.CreateProduct)
+			products.POST("", middleware.RequireAuth(), productHandler.CreateProduct)
+			products.PUT("/:id", middleware.RequireAuth(), productHandler.UpdateProduct)
 			products.GET("", productHandler.GetProducts)
 			// NOTE: /search must be registered BEFORE /:id to avoid static route collision in Gin
 			products.GET("/search", productHandler.SearchProducts)

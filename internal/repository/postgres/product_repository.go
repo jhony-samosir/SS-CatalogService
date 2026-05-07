@@ -154,6 +154,25 @@ func (r *productRepository) Create(ctx context.Context, p *domain.Product) error
 	return nil
 }
 
+func (r *productRepository) Update(ctx context.Context, p *domain.Product) error {
+	model := FromProductDomain(p)
+	db := getDB(ctx, r.db)
+
+	// Partial Update: Only update fields that are explicitly provided or changed.
+	// Using map with Updates() is the best practice to avoid overwriting all columns.
+	updates := map[string]interface{}{
+		"name":        model.Name,
+		"description": model.Description,
+		"status":      model.Status,
+		"updated_at":  time.Now(),
+	}
+
+	if err := db.Model(&ProductModel{}).Where("id = ?", model.ID).Updates(updates).Error; err != nil {
+		return mapDBError(err)
+	}
+	return nil
+}
+
 func (r *productRepository) Search(ctx context.Context, q domain.GetProductSearchQuery) (*domain.ProductSearchResult, error) {
 	db := getDB(ctx, r.db)
 
