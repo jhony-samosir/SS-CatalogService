@@ -79,6 +79,7 @@ func main() {
 		ProductQueryUsecase:   productQry,
 		VariantCommandUsecase: variantCmd,
 		InventoryCommandUsecase: inventoryCmd,
+		JWT:                   cfg.JWT,
 	})
 
 	// --- Start Server ---

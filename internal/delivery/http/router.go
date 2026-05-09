@@ -5,6 +5,7 @@ import (
 	v1 "ss-catalog-service/internal/delivery/http/v1"
 	"ss-catalog-service/internal/domain"
 	"ss-catalog-service/internal/delivery/http/middleware"
+	"ss-catalog-service/config"
 )
 
 // RouterConfig holds all pre-built usecases injected from main.go.
@@ -14,6 +15,7 @@ type RouterConfig struct {
 	ProductQueryUsecase   domain.ProductQueryUsecase
 	VariantCommandUsecase domain.VariantCommandUsecase
 	InventoryCommandUsecase domain.InventoryCommandUsecase
+	JWT                   config.JWTConfig
 }
 
 // SetupRouter wires the HTTP routes using already-constructed usecases.
@@ -25,8 +27,17 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 	sellerHandler := v1.NewSellerHandler()
 	auditHandler := v1.NewAuditHandler()
 
-	api := r.Group("/api/v1")
-	api.Use(middleware.AuthMiddleware())
+	// Global Middlewares
+	r.Use(middleware.CorrelationIDMiddleware())
+
+	// Health Check for Gateway
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "UP"})
+	})
+
+	// Catalog API Group
+	api := r.Group("/api/catalog/v1")
+	api.Use(middleware.AuthMiddleware(cfg.JWT))
 	{
 		products := api.Group("/products")
 		{

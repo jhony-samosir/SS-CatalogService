@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -134,6 +135,20 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 		return
 	}
 
+	// Add Caching Headers
+	etag := fmt.Sprintf("\"%d\"", product.UpdatedAt.Unix())
+	c.Header("Cache-Control", "public, max-age=60")
+	c.Header("Vary", "Accept-Language, Authorization")
+	
+	if product.UpdatedAt != nil {
+		c.Header("ETag", etag)
+		// 304 Not Modified support
+		if c.GetHeader("If-None-Match") == etag {
+			c.AbortWithStatus(http.StatusNotModified)
+			return
+		}
+	}
+
 	c.JSON(http.StatusOK, toProductResponse(product))
 }
 
@@ -169,6 +184,10 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 	for i := range products {
 		response[i] = toProductResponse(&products[i])
 	}
+
+	// Add Caching Headers
+	c.Header("Cache-Control", "public, max-age=60")
+	c.Header("Vary", "Accept-Language, Authorization")
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":   response,
@@ -240,6 +259,10 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 	for i := range result.Items {
 		items[i] = toProductResponse(&result.Items[i])
 	}
+
+	// Add Caching Headers
+	c.Header("Cache-Control", "public, max-age=30") // Shorter for search results
+	c.Header("Vary", "Accept-Language, Authorization")
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":        items,

@@ -18,9 +18,16 @@ type DatabaseConfig struct {
 	DSN string
 }
 
+type JWTConfig struct {
+	Issuer         string
+	Audience       string
+	PublicKeyPath  string
+}
+
 type Config struct {
 	App      AppConfig
 	Database DatabaseConfig
+	JWT      JWTConfig
 }
 
 // Load reads configuration from .env and environment variables.
@@ -41,6 +48,11 @@ func Load() *Config {
 	if cfg.Database.DSN == "" {
 		log.Fatal("DB_DSN environment variable is required")
 	}
+
+	// JWT Config
+	cfg.JWT.Issuer = getEnv("JWT_ISSUER", "https://auth.internal.smallmarket.com")
+	cfg.JWT.Audience = getEnv("JWT_AUDIENCE", "smallmarket-api")
+	cfg.JWT.PublicKeyPath = getEnv("JWT_PUBLIC_KEY_PATH", "../../secrets/jwt_public_key.pem")
 
 	return cfg
 }
