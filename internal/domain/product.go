@@ -30,6 +30,27 @@ type ProductQueryUsecase interface {
 	GetProductByPublicID(ctx context.Context, publicID uuid.UUID) (*Product, error)
 	GetProductDetails(ctx context.Context, query GetProductDetailsQuery) (*ProductDetailsResponse, error)
 	SearchProducts(ctx context.Context, q GetProductSearchQuery) (*ProductSearchResult, error)
+	FacetedSearch(ctx context.Context, q GetProductSearchQuery) (*FacetedSearchResult, error)
+}
+
+type SearchFacet struct {
+	Name   string `json:"name"`
+	Values []struct {
+		Value string `json:"value"`
+		Count int    `json:"count"`
+	} `json:"values"`
+}
+
+type FacetedSearchResult struct {
+	Items      []Product     `json:"items"`
+	Facets     []SearchFacet `json:"facets"`
+	TotalHint  int64         `json:"total_hint"`
+	NextCursor *string       `json:"next_cursor"`
+}
+
+type SearchRepository interface {
+	IndexProduct(ctx context.Context, product Product) error
+	Search(ctx context.Context, q GetProductSearchQuery) (*FacetedSearchResult, error)
 }
 
 // ProductCacheRepository defines the contract for in-memory caching operations.

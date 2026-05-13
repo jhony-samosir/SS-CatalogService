@@ -63,6 +63,7 @@ type ProductModel struct {
 	UnpublishAt  *time.Time    `gorm:"null"`
 	IsFeatured   bool          `gorm:"not null;default:false"`
 	WeightGram   *int          `gorm:"null"`
+	ImageURL     string        `gorm:"-"` // Non-persisted, for domain mapping
 	SearchVector string        `gorm:"type:tsvector"`
 
 	// Associations
@@ -101,6 +102,7 @@ func (m *ProductModel) ToDomain() domain.Product {
 		UnpublishAt: m.UnpublishAt,
 		IsFeatured:  m.IsFeatured,
 		WeightGram:  m.WeightGram,
+		ImageURL:    m.ImageURL,
 	}
 
 	// Map Translation
@@ -231,5 +233,6 @@ func FromProductDomain(p *domain.Product) *ProductModel {
 		UnpublishAt: p.UnpublishAt,
 		IsFeatured:  p.IsFeatured,
 		WeightGram:  p.WeightGram,
+		ImageURL:    p.ImageURL,
 	}
 }

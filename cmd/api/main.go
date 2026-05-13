@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ss-catalog-service/config"
+	"ss-catalog-service/internal/domain"
 	apphttp "ss-catalog-service/internal/delivery/http"
 	"ss-catalog-service/internal/infrastructure/cache"
 	"ss-catalog-service/internal/infrastructure/database"
@@ -18,6 +20,11 @@ import (
 	inventoryusecase "ss-catalog-service/internal/usecase/inventory"
 	productusecase "ss-catalog-service/internal/usecase/product"
 	variantusecase "ss-catalog-service/internal/usecase/variant"
+	reviewusecase "ss-catalog-service/internal/usecase/review"
+	bundleusecase "ss-catalog-service/internal/usecase/bundle"
+	importusecase "ss-catalog-service/internal/usecase/import_job"
+	categoryusecase "ss-catalog-service/internal/usecase/category"
+	msrepo "ss-catalog-service/internal/repository/meilisearch"
 	"ss-catalog-service/internal/worker"
 )
 
@@ -56,14 +63,39 @@ func main() {
 	// Wrap with Prometheus metrics decorator
 	productCacheRepo := cache.NewProductCacheMetricsDecorator(baseCacheRepo)
 
+	meiliURL := os.Getenv("MEILI_URL")
+	meiliKey := os.Getenv("MEILI_MASTER_KEY")
+	var searchRepo domain.SearchRepository
+	if meiliURL != "" {
+		var err error
+		searchRepo, err = msrepo.NewProductSearchRepository(meiliURL, meiliKey)
+		if err != nil {
+			log.Printf("Failed to connect to Meilisearch: %v", err)
+		}
+	}
+
 	productCmd := productusecase.NewProductCommandUsecase(productRepo, productCacheRepo, outboxRepo, txManager)
-	productQry := productusecase.NewProductQueryUsecase(productRepo, productCacheRepo, cfg.App.DefaultLang)
+	productQry := productusecase.NewProductQueryUsecase(productRepo, searchRepo, productCacheRepo, cfg.App.DefaultLang)
 
 	variantRepo := pgmodel.NewVariantRepository(db)
 	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)
 
 	inventoryRepo := pgmodel.NewInventoryRepository(db)
 	inventoryCmd := inventoryusecase.NewInventoryCommandUsecase(inventoryRepo, txManager)
+
+	reviewRepo := pgmodel.NewReviewRepository(db)
+	reviewUsecase := reviewusecase.NewReviewUsecase(reviewRepo)
+
+	bundleRepo := pgmodel.NewBundleRepository(db)
+	bundleUsecase := bundleusecase.NewBundleUsecase(bundleRepo)
+
+	priceRepo := pgmodel.NewPriceHistoryRepository(db)
+
+	importRepo := pgmodel.NewImportRepository(db)
+	importUsecase := importusecase.NewImportUsecase(importRepo)
+
+	categoryRepo := pgmodel.NewCategoryRepository(db)
+	categoryUsecase := categoryusecase.NewCategoryUsecase(categoryRepo)
 
 	// --- Background Workers ---
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -79,6 +111,11 @@ func main() {
 		ProductQueryUsecase:   productQry,
 		VariantCommandUsecase: variantCmd,
 		InventoryCommandUsecase: inventoryCmd,
+		ReviewUsecase:           reviewUsecase,
+		BundleUsecase:           bundleUsecase,
+		PriceHistoryRepository:  priceRepo,
+		ImportUsecase:           importUsecase,
+		CategoryUsecase:         categoryUsecase,
 		JWT:                   cfg.JWT,
 	})
 

@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 
@@ -24,6 +24,8 @@ WORKDIR /app
 COPY --from=builder /app/main .
 # Copy .env file if it exists
 COPY .env .
+# Copy migrations
+COPY --from=builder /app/db ./db
 
 EXPOSE 8081
 

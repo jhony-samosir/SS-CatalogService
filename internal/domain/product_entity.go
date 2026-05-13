@@ -43,6 +43,8 @@ type Product struct {
 	UnpublishAt  *time.Time
 	IsFeatured   bool
 	WeightGram   *int
+	IsDigital    bool
+	ImageURL     string
 
 	// Aggregated Data
 	Translation *ProductTranslation

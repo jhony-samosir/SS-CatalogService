@@ -12,6 +12,7 @@ import (
 
 type productQueryUsecase struct {
 	repo        domain.ProductRepository
+	searchRepo  domain.SearchRepository
 	cacheRepo   domain.ProductCacheRepository
 	sfGroup     *singleflight.Group
 	defaultLang string
@@ -20,11 +21,13 @@ type productQueryUsecase struct {
 // NewProductQueryUsecase creates a new instance of product query business logic.
 func NewProductQueryUsecase(
 	repo domain.ProductRepository,
+	searchRepo domain.SearchRepository,
 	cacheRepo domain.ProductCacheRepository,
 	defaultLang string,
 ) domain.ProductQueryUsecase {
 	return &productQueryUsecase{
 		repo:        repo,
+		searchRepo:  searchRepo,
 		cacheRepo:   cacheRepo,
 		sfGroup:     &singleflight.Group{},
 		defaultLang: defaultLang,
@@ -157,4 +160,47 @@ func (u *productQueryUsecase) SearchProducts(ctx context.Context, q domain.GetPr
 		return nil, fmt.Errorf("productQueryUsecase.SearchProducts: %w", err)
 	}
 	return result, nil
+}
+
+func (u *productQueryUsecase) FacetedSearch(ctx context.Context, q domain.GetProductSearchQuery) (*domain.FacetedSearchResult, error) {
+	if u.searchRepo != nil {
+		return u.searchRepo.Search(ctx, q)
+	}
+
+	searchResult, err := u.SearchProducts(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+
+	// Stub facets for demonstration
+	// In a real implementation, these would come from database aggregations (e.g. Meilisearch facets or SQL GROUP BY)
+	facets := []domain.SearchFacet{
+		{
+			Name: "Category",
+			Values: []struct {
+				Value string `json:"value"`
+				Count int    `json:"count"`
+			}{
+				{Value: "Snacks", Count: 42},
+				{Value: "Drinks", Count: 12},
+			},
+		},
+		{
+			Name: "Brand",
+			Values: []struct {
+				Value string `json:"value"`
+				Count int    `json:"count"`
+			}{
+				{Value: "Sam's", Count: 25},
+				{Value: "IndoFood", Count: 18},
+			},
+		},
+	}
+
+	return &domain.FacetedSearchResult{
+		Items:      searchResult.Items,
+		Facets:     facets,
+		TotalHint:  searchResult.TotalHint,
+		NextCursor: searchResult.NextCursor,
+	}, nil
 }

@@ -15,6 +15,11 @@ type RouterConfig struct {
 	ProductQueryUsecase   domain.ProductQueryUsecase
 	VariantCommandUsecase domain.VariantCommandUsecase
 	InventoryCommandUsecase domain.InventoryCommandUsecase
+	ReviewUsecase           domain.ReviewUsecase
+	BundleUsecase           domain.BundleUsecase
+	PriceHistoryRepository  domain.PriceHistoryRepository
+	ImportUsecase           domain.ImportUsecase
+	CategoryUsecase         domain.CategoryUsecase
 	JWT                   config.JWTConfig
 }
 
@@ -26,6 +31,11 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 	inventoryHandler := v1.NewInventoryHandler(cfg.InventoryCommandUsecase)
 	sellerHandler := v1.NewSellerHandler()
 	auditHandler := v1.NewAuditHandler()
+	reviewHandler := v1.NewReviewHandler(cfg.ReviewUsecase, cfg.ProductQueryUsecase)
+	bundleHandler := v1.NewBundleHandler(cfg.BundleUsecase)
+	priceHandler := v1.NewPriceHandler(cfg.PriceHistoryRepository)
+	importHandler := v1.NewImportHandler(cfg.ImportUsecase)
+	categoryHandler := v1.NewCategoryHandler(cfg.CategoryUsecase)
 
 	// Global Middlewares
 	r.Use(middleware.CorrelationIDMiddleware())
@@ -46,6 +56,7 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 			products.GET("", productHandler.GetProducts)
 			// NOTE: /search must be registered BEFORE /:id to avoid static route collision in Gin
 			products.GET("/search", productHandler.SearchProducts)
+			products.GET("/faceted-search", productHandler.FacetedSearch)
 			products.GET("/:id", productHandler.GetProduct)
 		}
 
@@ -68,6 +79,33 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 		audit := api.Group("/audit-logs")
 		{
 			audit.GET("", auditHandler.GetAuditLogs)
+		}
+
+		reviews := api.Group("/reviews")
+		{
+			reviews.POST("", middleware.RequireAuth(), reviewHandler.SubmitReview)
+			reviews.GET("/product/:id", reviewHandler.GetProductReviews)
+			reviews.GET("/product/:id/summary", reviewHandler.GetRatingSummary)
+		}
+
+		bundles := api.Group("/bundles")
+		{
+			bundles.POST("", middleware.RequireAuth(), bundleHandler.CreateBundle)
+			bundles.GET("", bundleHandler.GetBundles)
+			bundles.GET("/:id", bundleHandler.GetBundle)
+		}
+
+		api.GET("/products/:id/price-history", priceHandler.GetPriceHistory)
+
+		imports := api.Group("/imports")
+		{
+			imports.POST("", middleware.RequireAuth(), importHandler.TriggerImport)
+			imports.GET("/:id", importHandler.GetJobStatus)
+		}
+
+		categories := api.Group("/categories")
+		{
+			categories.GET("", categoryHandler.GetCategories)
 		}
 	}
 }

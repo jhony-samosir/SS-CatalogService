@@ -62,7 +62,7 @@ func TestGetProductDetails(t *testing.T) {
 			mockRepo := new(mocks.MockProductRepository)
 			tc.setupMocks(mockRepo)
 
-			usecase := product.NewProductQueryUsecase(mockRepo, nil, "id-ID")
+			usecase := product.NewProductQueryUsecase(mockRepo, nil, nil, "id-ID")
 			resp, err := usecase.GetProductDetails(context.Background(), tc.query)
 
 			if tc.expectedError != nil {
@@ -134,7 +134,7 @@ func TestSearchProducts(t *testing.T) {
 			expectedError: domain.ErrInvalidInput,
 		},
 		{
-			name: "Limit_Normalization",
+			name:  "Limit_Normalization",
 			query: domain.GetProductSearchQuery{Limit: 999},
 			setupMocks: func(repo *mocks.MockProductRepository) {
 				repo.On("Search", mock.Anything, mock.MatchedBy(func(q domain.GetProductSearchQuery) bool {
@@ -153,7 +153,7 @@ func TestSearchProducts(t *testing.T) {
 			mockRepo := new(mocks.MockProductRepository)
 			tc.setupMocks(mockRepo)
 
-			usecase := product.NewProductQueryUsecase(mockRepo, nil, "en")
+			usecase := product.NewProductQueryUsecase(mockRepo, nil, nil, "en")
 			res, err := usecase.SearchProducts(context.Background(), tc.query)
 
 			if tc.expectedError != nil {

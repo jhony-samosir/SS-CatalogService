@@ -270,3 +270,23 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 		"has_more":    result.NextCursor != nil,
 	})
 }
+
+// FacetedSearch handles GET /api/v1/products/faceted-search
+func (h *ProductHandler) FacetedSearch(c *gin.Context) {
+	q := domain.GetProductSearchQuery{}
+	// (Reuse logic from SearchProducts or refactor)
+	if kw := c.Query("q"); kw != "" {
+		q.Keyword = &kw
+	}
+	if lim, err := strconv.Atoi(c.DefaultQuery("limit", "20")); err == nil {
+		q.Limit = lim
+	}
+
+	result, err := h.queryUsecase.FacetedSearch(c.Request.Context(), q)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "faceted search failed"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}

@@ -25,3 +25,8 @@ type CategoryRepository interface {
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Category, error)
 	Create(ctx context.Context, category *Category) error
 }
+
+// CategoryUsecase defines the contract for category business logic.
+type CategoryUsecase interface {
+	GetCategories(ctx context.Context, p Pagination) ([]Category, error)
+}
