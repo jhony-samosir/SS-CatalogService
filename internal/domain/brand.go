@@ -9,12 +9,12 @@ import (
 // Brand represents the product brand information.
 type Brand struct {
 	BaseEntity
-	Name        string
-	Slug        string
-	LogoURL     string
-	WebsiteURL  string
-	Description string
-	IsActive    bool
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	LogoURL     string `json:"logo_url,omitempty"`
+	WebsiteURL  string `json:"website_url,omitempty"`
+	Description string `json:"description,omitempty"`
+	IsActive    bool   `json:"is_active"`
 }
 
 // BrandRepository defines the contract for brand data access.

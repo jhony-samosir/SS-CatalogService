@@ -9,14 +9,14 @@ import (
 // Category represents hierarchical product categories.
 type Category struct {
 	BaseEntity
-	ParentID    *int
-	Name        string
-	Slug        string
-	IconURL     string
-	Description string
-	Level       int
-	SortOrder   int
-	IsActive    bool
+	ParentID    *int   `json:"parent_id,omitempty"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	IconURL     string `json:"icon_url,omitempty"`
+	Description string `json:"description,omitempty"`
+	Level       int    `json:"level"`
+	SortOrder   int    `json:"sort_order"`
+	IsActive    bool   `json:"is_active"`
 }
 
 // CategoryRepository defines the contract for category data access.

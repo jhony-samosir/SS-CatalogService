@@ -9,14 +9,14 @@ import (
 
 // BaseEntity contains common fields for enterprise-grade audit and soft-deletion.
 type BaseEntity struct {
-	ID        int
-	PublicID  uuid.UUID
-	CreatedAt time.Time
-	CreatedBy string
-	UpdatedAt *time.Time
-	UpdatedBy string
-	DeletedAt *time.Time
-	DeletedBy string
+	ID        int        `json:"-"`
+	PublicID  uuid.UUID  `json:"id"`
+	CreatedAt time.Time  `json:"created_at"`
+	CreatedBy string     `json:"created_by,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	UpdatedBy string     `json:"updated_by,omitempty"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	DeletedBy string     `json:"deleted_by,omitempty"`
 }
 
 // ProductStatus defines the lifecycle state of a product.

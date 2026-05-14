@@ -36,5 +36,7 @@ func (h *CategoryHandler) GetCategories(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, categories)
+	c.JSON(http.StatusOK, gin.H{
+		"data": categories,
+	})
 }

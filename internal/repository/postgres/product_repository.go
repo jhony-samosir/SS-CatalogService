@@ -176,8 +176,9 @@ func (r *productRepository) Update(ctx context.Context, p *domain.Product) error
 func (r *productRepository) Search(ctx context.Context, q domain.GetProductSearchQuery) (*domain.ProductSearchResult, error) {
 	db := getDB(ctx, r.db)
 
-	// --- Base query scoped to active, non-deleted products ---
-	tx := db.Model(&ProductModel{}).
+	// --- Base query scoped to non-deleted products ---
+	tx := db.Table("products").
+		Select("products.*").
 		Where("products.deleted_at IS NULL")
 
 	// --- Full-Text Search via GIN-indexed search_vector ---
@@ -189,12 +190,10 @@ func (r *productRepository) Search(ctx context.Context, q domain.GetProductSearc
 			})
 	}
 
-	// --- Status filter (defaults to 'active') ---
-	status := domain.ProductStatusActive
+	// --- Status filter (only apply if explicitly requested) ---
 	if q.Status != nil {
-		status = *q.Status
+		tx = tx.Where("products.status = ?", *q.Status)
 	}
-	tx = tx.Where("products.status = ?", status)
 
 	// --- Brand filter ---
 	if q.BrandID != nil {
@@ -206,23 +205,28 @@ func (r *productRepository) Search(ctx context.Context, q domain.GetProductSearc
 		tx = tx.Joins(`
 			INNER JOIN product_categories pc ON pc.product_id = products.id
 			INNER JOIN categories c ON c.id = pc.category_id AND c.deleted_at IS NULL
-		`).Where("c.slug = ?", *q.CategorySlug)
+		`).Where("c.slug ILIKE ?", *q.CategorySlug)
 	}
 
 	// --- Price range filter via subquery on variants ---
 	if q.MinPrice != nil || q.MaxPrice != nil {
 		tx = tx.Joins(`
-			INNER JOIN (
-				SELECT product_id, MIN(price) AS min_price
-				FROM product_variants
-				WHERE deleted_at IS NULL
-				GROUP BY product_id
+			LEFT JOIN (
+				SELECT v.product_id, MIN(pp.amount) AS min_price
+				FROM product_variants v
+				INNER JOIN product_prices pp ON pp.variant_id = v.id
+				WHERE v.deleted_at IS NULL 
+				  AND pp.deleted_at IS NULL 
+				  AND pp.is_active = true
+				GROUP BY v.product_id
 			) pv ON pv.product_id = products.id
 		`)
-		if q.MinPrice != nil {
+		
+		// Only filter if value is meaningful (e.g. > 0 for MinPrice)
+		if q.MinPrice != nil && *q.MinPrice > 0 {
 			tx = tx.Where("pv.min_price >= ?", *q.MinPrice)
 		}
-		if q.MaxPrice != nil {
+		if q.MaxPrice != nil && *q.MaxPrice < 1000000 {
 			tx = tx.Where("pv.min_price <= ?", *q.MaxPrice)
 		}
 	}
