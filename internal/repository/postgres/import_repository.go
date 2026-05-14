@@ -70,3 +70,29 @@ func (r *importRepository) GetPendingJobs(ctx context.Context) ([]domain.ImportJ
 	}
 	return jobs, nil
 }
+
+func (r *importRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.ImportJob, int64, error) {
+	var models []ImportJobModel
+	var total int64
+	db := getDB(ctx, r.db)
+
+	query := db.Model(&ImportJobModel{})
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if p.Limit > 0 {
+		query = query.Limit(p.Limit).Offset(p.Offset)
+	}
+
+	if err := query.Order("created_at DESC").Find(&models).Error; err != nil {
+		return nil, 0, err
+	}
+
+	jobs := make([]domain.ImportJob, len(models))
+	for i, m := range models {
+		jobs[i] = m.ToDomain()
+	}
+	return jobs, total, nil
+}

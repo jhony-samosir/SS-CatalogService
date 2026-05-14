@@ -8,43 +8,52 @@ import (
 	"ss-catalog-service/config"
 )
 
-// RouterConfig holds all pre-built usecases injected from main.go.
-// The router knows NOTHING about the database or implementations.
+type AppUsecases struct {
+	ProductCommand   domain.ProductCommandUsecase
+	ProductQuery     domain.ProductQueryUsecase
+	VariantCommand   domain.VariantCommandUsecase
+	InventoryCommand domain.InventoryCommandUsecase
+	Review           domain.ReviewUsecase
+	Bundle           domain.BundleUsecase
+	Import           domain.ImportUsecase
+	Category         domain.CategoryUsecase
+	Brand            domain.BrandUsecase
+	Attribute        domain.AttributeUsecase
+	Tag              domain.TagUsecase
+	Warehouse        domain.WarehouseUsecase
+	Digital          domain.DigitalUsecase
+}
+
+type AppRepositories struct {
+	PriceHistory     domain.PriceHistoryRepository
+	Seller           domain.SellerRepository
+}
+
+// RouterConfig holds all pre-built dependencies injected from main.go.
 type RouterConfig struct {
-	ProductCommandUsecase domain.ProductCommandUsecase
-	ProductQueryUsecase   domain.ProductQueryUsecase
-	VariantCommandUsecase domain.VariantCommandUsecase
-	InventoryCommandUsecase domain.InventoryCommandUsecase
-	ReviewUsecase           domain.ReviewUsecase
-	BundleUsecase           domain.BundleUsecase
-	PriceHistoryRepository  domain.PriceHistoryRepository
-	ImportUsecase           domain.ImportUsecase
-	CategoryUsecase         domain.CategoryUsecase
-	BrandUsecase            domain.BrandUsecase
-	AttributeUsecase        domain.AttributeUsecase
-	TagUsecase              domain.TagUsecase
-	WarehouseUsecase        domain.WarehouseUsecase
-	SellerRepository        domain.SellerRepository
-	JWT                   config.JWTConfig
+	Usecases     AppUsecases
+	Repositories AppRepositories
+	JWT          config.JWTConfig
 }
 
 // SetupRouter wires the HTTP routes using already-constructed usecases.
 // Dependency Injection is performed by the caller (main.go), not here.
 func SetupRouter(r *gin.Engine, cfg RouterConfig) {
-	productHandler := v1.NewProductHandler(cfg.ProductCommandUsecase, cfg.ProductQueryUsecase)
-	variantHandler := v1.NewVariantHandler(cfg.VariantCommandUsecase)
-	inventoryHandler := v1.NewInventoryHandler(cfg.InventoryCommandUsecase)
+	productHandler := v1.NewProductHandler(cfg.Usecases.ProductCommand, cfg.Usecases.ProductQuery)
+	variantHandler := v1.NewVariantHandler(cfg.Usecases.VariantCommand)
+	inventoryHandler := v1.NewInventoryHandler(cfg.Usecases.InventoryCommand)
 	sellerHandler := v1.NewSellerHandler()
 	auditHandler := v1.NewAuditHandler()
-	reviewHandler := v1.NewReviewHandler(cfg.ReviewUsecase, cfg.ProductQueryUsecase)
-	bundleHandler := v1.NewBundleHandler(cfg.BundleUsecase)
-	priceHandler := v1.NewPriceHandler(cfg.PriceHistoryRepository)
-	importHandler := v1.NewImportHandler(cfg.ImportUsecase)
-	categoryHandler := v1.NewCategoryHandler(cfg.CategoryUsecase)
-	brandHandler := v1.NewBrandHandler(cfg.BrandUsecase)
-	attributeHandler := v1.NewAttributeHandler(cfg.AttributeUsecase)
-	tagHandler := v1.NewTagHandler(cfg.TagUsecase)
-	warehouseHandler := v1.NewWarehouseHandler(cfg.WarehouseUsecase)
+	reviewHandler := v1.NewReviewHandler(cfg.Usecases.Review, cfg.Usecases.ProductQuery)
+	bundleHandler := v1.NewBundleHandler(cfg.Usecases.Bundle)
+	priceHandler := v1.NewPriceHandler(cfg.Repositories.PriceHistory)
+	importHandler := v1.NewImportHandler(cfg.Usecases.Import)
+	categoryHandler := v1.NewCategoryHandler(cfg.Usecases.Category)
+	brandHandler := v1.NewBrandHandler(cfg.Usecases.Brand)
+	attributeHandler := v1.NewAttributeHandler(cfg.Usecases.Attribute)
+	tagHandler := v1.NewTagHandler(cfg.Usecases.Tag)
+	warehouseHandler := v1.NewWarehouseHandler(cfg.Usecases.Warehouse)
+	digitalHandler := v1.NewDigitalHandler(cfg.Usecases.Digital)
 
 	// Global Middlewares
 	r.Use(middleware.CorrelationIDMiddleware())
@@ -56,7 +65,7 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 
 	// Catalog API Group
 	api := r.Group("/api/catalog/v1")
-	api.Use(middleware.AuthMiddleware(cfg.JWT, cfg.SellerRepository))
+	api.Use(middleware.AuthMiddleware(cfg.JWT, cfg.Repositories.Seller))
 	{
 		products := api.Group("/products")
 		{
@@ -123,9 +132,11 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 
 		reviews := api.Group("/reviews")
 		{
+			reviews.GET("", middleware.RequireAuth(), reviewHandler.GetAllReviews)
 			reviews.POST("", middleware.RequireAuth(), reviewHandler.SubmitReview)
 			reviews.GET("/product/:id", reviewHandler.GetProductReviews)
 			reviews.GET("/product/:id/summary", reviewHandler.GetRatingSummary)
+			reviews.PATCH("/:id/status", middleware.RequireAuth(), reviewHandler.UpdateReviewStatus)
 		}
 
 		bundles := api.Group("/bundles")
@@ -133,14 +144,24 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 			bundles.POST("", middleware.RequireAuth(), bundleHandler.CreateBundle)
 			bundles.GET("", bundleHandler.GetBundles)
 			bundles.GET("/:id", bundleHandler.GetBundle)
+			bundles.PUT("/:id", middleware.RequireAuth(), bundleHandler.UpdateBundle)
+			bundles.DELETE("/:id", middleware.RequireAuth(), bundleHandler.DeleteBundle)
 		}
 
 		api.GET("/products/:id/price-history", priceHandler.GetPriceHistory)
 
 		imports := api.Group("/imports")
 		{
+			imports.GET("", middleware.RequireAuth(), importHandler.GetImportJobs)
 			imports.POST("", middleware.RequireAuth(), importHandler.TriggerImport)
 			imports.GET("/:id", importHandler.GetJobStatus)
+		}
+
+		digital := api.Group("/digital")
+		{
+			digital.POST("/licenses", middleware.RequireAuth(), digitalHandler.AddLicenses)
+			digital.GET("/product/:product_id", digitalHandler.GetDigitalDetails)
+			digital.POST("/upload", middleware.RequireAuth(), digitalHandler.UploadFile)
 		}
 
 		categories := api.Group("/categories")

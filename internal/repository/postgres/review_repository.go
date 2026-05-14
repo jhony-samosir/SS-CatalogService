@@ -86,3 +86,29 @@ func (r *reviewRepository) UpdateStatus(ctx context.Context, reviewID int, statu
 	db := getDB(ctx, r.db)
 	return db.Model(&ProductReviewModel{}).Where("id = ?", reviewID).Update("status", string(status)).Error
 }
+
+func (r *reviewRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.ProductReview, int64, error) {
+	var models []ProductReviewModel
+	var total int64
+	db := getDB(ctx, r.db)
+
+	query := db.Model(&ProductReviewModel{}).Preload("Images")
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if p.Limit > 0 {
+		query = query.Limit(p.Limit).Offset(p.Offset)
+	}
+
+	if err := query.Order("created_at DESC").Find(&models).Error; err != nil {
+		return nil, 0, err
+	}
+
+	reviews := make([]domain.ProductReview, len(models))
+	for i, m := range models {
+		reviews[i] = m.ToDomain()
+	}
+	return reviews, total, nil
+}

@@ -37,9 +37,11 @@ type ImportRepository interface {
 	GetByPublicID(ctx context.Context, publicID uuid.UUID) (*ImportJob, error)
 	UpdateStatus(ctx context.Context, id int, status JobStatus, errorLog string, processed int) error
 	GetPendingJobs(ctx context.Context) ([]ImportJob, error)
+	FindAll(ctx context.Context, p Pagination) ([]ImportJob, int64, error)
 }
 
 type ImportUsecase interface {
 	TriggerImport(ctx context.Context, fileURL string, jobType string, userID string) (*ImportJob, error)
 	GetJobStatus(ctx context.Context, publicID uuid.UUID) (*ImportJob, error)
+	GetAllJobs(ctx context.Context, p Pagination) ([]ImportJob, int64, error)
 }

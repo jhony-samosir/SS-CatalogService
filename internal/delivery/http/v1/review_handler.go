@@ -126,3 +126,45 @@ func (h *ReviewHandler) GetRatingSummary(c *gin.Context) {
 		"total_reviews":  count,
 	})
 }
+
+func (h *ReviewHandler) GetAllReviews(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	reviews, total, err := h.usecase.GetAllReviews(c.Request.Context(), domain.Pagination{
+		Limit:  limit,
+		Offset: offset,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get reviews"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"items":       reviews,
+			"total_count": total,
+		},
+	})
+}
+
+func (h *ReviewHandler) UpdateReviewStatus(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req struct {
+		Status domain.ReviewStatus `json:"status" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := h.usecase.UpdateReviewStatus(c.Request.Context(), id, req.Status)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update review status"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "review status updated successfully"})
+}

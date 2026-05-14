@@ -68,7 +68,7 @@ func (h *BundleHandler) GetBundles(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	bundles, err := h.usecase.GetBundles(c.Request.Context(), domain.Pagination{
+	bundles, total, err := h.usecase.GetBundles(c.Request.Context(), domain.Pagination{
 		Limit:  limit,
 		Offset: offset,
 	})
@@ -78,7 +78,12 @@ func (h *BundleHandler) GetBundles(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": bundles})
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"items":       bundles,
+			"total_count": total,
+		},
+	})
 }
 
 func (h *BundleHandler) GetBundle(c *gin.Context) {
@@ -95,4 +100,54 @@ func (h *BundleHandler) GetBundle(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, bundle)
+}
+
+func (h *BundleHandler) UpdateBundle(c *gin.Context) {
+	publicID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid bundle id"})
+		return
+	}
+
+	var req CreateBundleRequest // Use same structure for simplicity or a separate UpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	items := make([]domain.BundleItem, len(req.Items))
+	for i, item := range req.Items {
+		items[i] = domain.BundleItem{
+			ProductID: item.ProductID,
+			VariantID: item.VariantID,
+			Quantity:  item.Quantity,
+		}
+	}
+
+	err = h.usecase.UpdateBundle(c.Request.Context(), &domain.ProductBundle{
+		PublicID:      publicID,
+		Name:          req.Name,
+		Slug:          req.Slug,
+		Description:   req.Description,
+		PriceOverride: req.PriceOverride,
+		Items:         items,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update bundle"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "bundle updated successfully"})
+}
+
+func (h *BundleHandler) DeleteBundle(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	err := h.usecase.DeleteBundle(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete bundle"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "bundle deleted successfully"})
 }

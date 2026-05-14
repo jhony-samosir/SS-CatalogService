@@ -26,6 +26,7 @@ import (
 	categoryusecase "ss-catalog-service/internal/usecase/category"
 	brandusecase "ss-catalog-service/internal/usecase/brand"
 	attrusecase "ss-catalog-service/internal/usecase/attribute"
+	digitalusecase "ss-catalog-service/internal/usecase/digital"
 	msrepo "ss-catalog-service/internal/repository/meilisearch"
 	"ss-catalog-service/internal/worker"
 )
@@ -114,6 +115,9 @@ func main() {
 	tagUsecase := attrusecase.NewTagUsecase(tagRepo)
 	whUsecase := inventoryusecase.NewWarehouseUsecase(whRepo)
 
+	digitalRepo := pgmodel.NewDigitalRepository(db)
+	digitalUsecase := digitalusecase.NewDigitalUsecase(digitalRepo)
+
 	sellerRepo := pgmodel.NewSellerRepository(db)
 
 	// --- Background Workers ---
@@ -126,21 +130,26 @@ func main() {
 	// --- HTTP Router ---
 	r := gin.Default()
 	apphttp.SetupRouter(r, apphttp.RouterConfig{
-		ProductCommandUsecase: productCmd,
-		ProductQueryUsecase:   productQry,
-		VariantCommandUsecase: variantCmd,
-		InventoryCommandUsecase: inventoryCmd,
-		ReviewUsecase:           reviewUsecase,
-		BundleUsecase:           bundleUsecase,
-		PriceHistoryRepository:  priceRepo,
-		ImportUsecase:           importUsecase,
-		CategoryUsecase:         categoryUsecase,
-		BrandUsecase:            brandUsecase,
-		AttributeUsecase:        attrUsecase,
-		TagUsecase:              tagUsecase,
-		WarehouseUsecase:        whUsecase,
-		SellerRepository:        sellerRepo,
-		JWT:                   cfg.JWT,
+		Usecases: apphttp.AppUsecases{
+			ProductCommand:   productCmd,
+			ProductQuery:     productQry,
+			VariantCommand:   variantCmd,
+			InventoryCommand: inventoryCmd,
+			Review:           reviewUsecase,
+			Bundle:           bundleUsecase,
+			Import:           importUsecase,
+			Category:         categoryUsecase,
+			Brand:            brandUsecase,
+			Attribute:        attrUsecase,
+			Tag:              tagUsecase,
+			Warehouse:        whUsecase,
+			Digital:          digitalUsecase,
+		},
+		Repositories: apphttp.AppRepositories{
+			PriceHistory: priceRepo,
+			Seller:       sellerRepo,
+		},
+		JWT: cfg.JWT,
 	})
 
 	// --- Start Server ---

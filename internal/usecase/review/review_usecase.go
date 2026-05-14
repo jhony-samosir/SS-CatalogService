@@ -35,3 +35,11 @@ func (u *reviewUsecase) VoteReview(ctx context.Context, reviewID int, userID str
 	}
 	return u.repo.AddVote(ctx, vote)
 }
+
+func (u *reviewUsecase) GetAllReviews(ctx context.Context, p domain.Pagination) ([]domain.ProductReview, int64, error) {
+	return u.repo.FindAll(ctx, p)
+}
+
+func (u *reviewUsecase) UpdateReviewStatus(ctx context.Context, reviewID int, status domain.ReviewStatus) error {
+	return u.repo.UpdateStatus(ctx, reviewID, status)
+}

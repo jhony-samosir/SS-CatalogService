@@ -48,6 +48,7 @@ type ReviewRepository interface {
 	GetAverageRating(ctx context.Context, productID int) (float64, int, error)
 	AddVote(ctx context.Context, vote *ReviewVote) error
 	UpdateStatus(ctx context.Context, reviewID int, status ReviewStatus) error
+	FindAll(ctx context.Context, p Pagination) ([]ProductReview, int64, error)
 }
 
 type ReviewUsecase interface {
@@ -55,4 +56,6 @@ type ReviewUsecase interface {
 	GetProductReviews(ctx context.Context, productID int, p Pagination) ([]ProductReview, error)
 	GetProductRatingSummary(ctx context.Context, productID int) (float64, int, error)
 	VoteReview(ctx context.Context, reviewID int, userID string, helpful bool) error
+	GetAllReviews(ctx context.Context, p Pagination) ([]ProductReview, int64, error)
+	UpdateReviewStatus(ctx context.Context, reviewID int, status ReviewStatus) error
 }

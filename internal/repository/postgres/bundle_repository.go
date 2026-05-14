@@ -29,24 +29,31 @@ func (r *bundleRepository) Create(ctx context.Context, bundle *domain.ProductBun
 	return nil
 }
 
-func (r *bundleRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.ProductBundle, error) {
+func (r *bundleRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.ProductBundle, int64, error) {
 	var models []ProductBundleModel
 	db := getDB(ctx, r.db)
 
-	query := db.Preload("Items")
+	query := db.Model(&ProductBundleModel{})
+	
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query = db.Preload("Items")
 	if p.Limit > 0 {
 		query = query.Limit(p.Limit).Offset(p.Offset)
 	}
 
 	if err := query.Find(&models).Error; err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	bundles := make([]domain.ProductBundle, len(models))
 	for i, m := range models {
 		bundles[i] = m.ToDomain()
 	}
-	return bundles, nil
+	return bundles, total, nil
 }
 
 func (r *bundleRepository) FindByPublicID(ctx context.Context, publicID uuid.UUID) (*domain.ProductBundle, error) {

@@ -31,3 +31,7 @@ func (u *importUsecase) TriggerImport(ctx context.Context, fileURL string, jobTy
 func (u *importUsecase) GetJobStatus(ctx context.Context, publicID uuid.UUID) (*domain.ImportJob, error) {
 	return u.repo.GetByPublicID(ctx, publicID)
 }
+
+func (u *importUsecase) GetAllJobs(ctx context.Context, p domain.Pagination) ([]domain.ImportJob, int64, error) {
+	return u.repo.FindAll(ctx, p)
+}

@@ -2,6 +2,7 @@ package v1
 
 import (
 	"net/http"
+	"strconv"
 	"ss-catalog-service/internal/domain"
 
 	"github.com/gin-gonic/gin"
@@ -30,7 +31,8 @@ func (h *ImportHandler) TriggerImport(c *gin.Context) {
 
 	userID := c.GetString("user_id")
 	if userID == "" {
-		userID = "admin"
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
 	}
 
 	job, err := h.usecase.TriggerImport(c.Request.Context(), req.FileURL, req.JobType, userID)
@@ -56,4 +58,26 @@ func (h *ImportHandler) GetJobStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, job)
+}
+
+func (h *ImportHandler) GetImportJobs(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	jobs, total, err := h.usecase.GetAllJobs(c.Request.Context(), domain.Pagination{
+		Limit:  limit,
+		Offset: offset,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get import jobs"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"items":       jobs,
+			"total_count": total,
+		},
+	})
 }
