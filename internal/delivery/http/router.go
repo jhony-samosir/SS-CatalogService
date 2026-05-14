@@ -20,6 +20,10 @@ type RouterConfig struct {
 	PriceHistoryRepository  domain.PriceHistoryRepository
 	ImportUsecase           domain.ImportUsecase
 	CategoryUsecase         domain.CategoryUsecase
+	BrandUsecase            domain.BrandUsecase
+	AttributeUsecase        domain.AttributeUsecase
+	TagUsecase              domain.TagUsecase
+	WarehouseUsecase        domain.WarehouseUsecase
 	SellerRepository        domain.SellerRepository
 	JWT                   config.JWTConfig
 }
@@ -37,6 +41,10 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 	priceHandler := v1.NewPriceHandler(cfg.PriceHistoryRepository)
 	importHandler := v1.NewImportHandler(cfg.ImportUsecase)
 	categoryHandler := v1.NewCategoryHandler(cfg.CategoryUsecase)
+	brandHandler := v1.NewBrandHandler(cfg.BrandUsecase)
+	attributeHandler := v1.NewAttributeHandler(cfg.AttributeUsecase)
+	tagHandler := v1.NewTagHandler(cfg.TagUsecase)
+	warehouseHandler := v1.NewWarehouseHandler(cfg.WarehouseUsecase)
 
 	// Global Middlewares
 	r.Use(middleware.CorrelationIDMiddleware())
@@ -77,6 +85,37 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 			sellers.GET("/:code", sellerHandler.GetSeller)
 		}
 
+		brands := api.Group("/brands")
+		{
+			brands.GET("", brandHandler.GetBrands)
+			brands.GET("/:id", brandHandler.GetBrand)
+			brands.POST("", middleware.RequireAuth(), brandHandler.CreateBrand)
+			brands.PUT("/:id", middleware.RequireAuth(), brandHandler.UpdateBrand)
+			brands.DELETE("/:id", middleware.RequireAuth(), brandHandler.DeleteBrand)
+		}
+
+		attributes := api.Group("/attributes")
+		{
+			attributes.GET("", attributeHandler.GetAttributes)
+			attributes.POST("", middleware.RequireAuth(), attributeHandler.CreateAttribute)
+			attributes.DELETE("/:id", middleware.RequireAuth(), attributeHandler.DeleteAttribute)
+		}
+
+		tags := api.Group("/tags")
+		{
+			tags.GET("", tagHandler.GetTags)
+			tags.POST("", middleware.RequireAuth(), tagHandler.CreateTag)
+			tags.DELETE("/:id", middleware.RequireAuth(), tagHandler.DeleteTag)
+		}
+
+		warehouses := api.Group("/warehouses")
+		{
+			warehouses.GET("", warehouseHandler.GetWarehouses)
+			warehouses.POST("", middleware.RequireAuth(), warehouseHandler.CreateWarehouse)
+			warehouses.PUT("/:id", middleware.RequireAuth(), warehouseHandler.UpdateWarehouse)
+			warehouses.DELETE("/:id", middleware.RequireAuth(), warehouseHandler.DeleteWarehouse)
+		}
+
 		audit := api.Group("/audit-logs")
 		{
 			audit.GET("", auditHandler.GetAuditLogs)
@@ -107,6 +146,10 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 		categories := api.Group("/categories")
 		{
 			categories.GET("", categoryHandler.GetCategories)
+			categories.GET("/:id", categoryHandler.GetCategory)
+			categories.POST("", middleware.RequireAuth(), categoryHandler.CreateCategory)
+			categories.PUT("/:id", middleware.RequireAuth(), categoryHandler.UpdateCategory)
+			categories.DELETE("/:id", middleware.RequireAuth(), categoryHandler.DeleteCategory)
 		}
 	}
 }

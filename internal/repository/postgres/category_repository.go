@@ -81,6 +81,35 @@ func (r *categoryRepository) FindByPublicID(ctx context.Context, publicID uuid.U
 	}, nil
 }
 
+func (r *categoryRepository) FindByID(ctx context.Context, id int) (*domain.Category, error) {
+	var m CategoryModel
+	db := getDB(ctx, r.db)
+
+	if err := db.First(&m, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &domain.Category{
+		BaseEntity: domain.BaseEntity{
+			ID:        m.ID,
+			PublicID:  m.PublicID,
+			CreatedAt: m.CreatedAt,
+			UpdatedAt: m.UpdatedAt,
+		},
+		ParentID:    m.ParentID,
+		Name:        m.Name,
+		Slug:        m.Slug,
+		IconURL:     m.IconURL,
+		Description: m.Description,
+		Level:       m.Level,
+		SortOrder:   m.SortOrder,
+		IsActive:    m.IsActive,
+	}, nil
+}
+
 func (r *categoryRepository) Create(ctx context.Context, category *domain.Category) error {
 	model := &CategoryModel{
 		BaseModel: BaseModel{
@@ -104,4 +133,46 @@ func (r *categoryRepository) Create(ctx context.Context, category *domain.Catego
 	category.ID = model.ID
 	category.CreatedAt = model.CreatedAt
 	return nil
+}
+
+func (r *categoryRepository) Update(ctx context.Context, category *domain.Category) error {
+	db := getDB(ctx, r.db)
+	return db.Model(&CategoryModel{}).
+		Where("public_id = ?", category.PublicID).
+		Updates(map[string]interface{}{
+			"parent_id":   category.ParentID,
+			"name":        category.Name,
+			"slug":        category.Slug,
+			"icon_url":    category.IconURL,
+			"description": category.Description,
+			"level":       category.Level,
+			"sort_order":  category.SortOrder,
+			"is_active":   category.IsActive,
+		}).Error
+}
+
+func (r *categoryRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
+	db := getDB(ctx, r.db)
+	return db.Where("public_id = ?", publicID).Delete(&CategoryModel{}).Error
+}
+
+func (r *categoryRepository) CountChildren(ctx context.Context, parentID int) (int64, error) {
+	var count int64
+	db := getDB(ctx, r.db)
+	if err := db.Model(&CategoryModel{}).Where("parent_id = ?", parentID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *categoryRepository) CountProducts(ctx context.Context, categoryID int) (int64, error) {
+	var count int64
+	db := getDB(ctx, r.db)
+	// Product <-> Category is usually many-to-many or a simple link.
+	// Assuming a simple ProductCategory model exists or similar.
+	// For now, checking direct product table if it has category_id.
+	if err := db.Model(&ProductModel{}).Where("category_id = ?", categoryID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
 }

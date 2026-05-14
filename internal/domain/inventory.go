@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // PriceType defines the tier of pricing.
@@ -32,15 +34,15 @@ type ProductPrice struct {
 // Warehouse represents physical or virtual warehouse locations.
 type Warehouse struct {
 	BaseEntity
-	SellerID    *int
-	Name        string
-	Code        string
-	City        string
-	Province    string
-	CountryCode string
-	PostalCode  string
-	Address     string
-	IsActive    bool
+	SellerID    *int   `json:"seller_id,omitempty"`
+	Name        string `json:"name"`
+	Code        string `json:"code"`
+	City        string `json:"city"`
+	Province    string `json:"province,omitempty"`
+	CountryCode string `json:"country_code,omitempty"`
+	PostalCode  string `json:"postal_code,omitempty"`
+	Address     string `json:"address,omitempty"`
+	IsActive    bool   `json:"is_active"`
 }
 
 // ProductInventory represents real-time stock levels.
@@ -111,6 +113,21 @@ type InventoryRepository interface {
 	CreateMovement(ctx context.Context, movement *InventoryMovement) error
 }
 
+type WarehouseRepository interface {
+	FindAll(ctx context.Context, p Pagination) ([]Warehouse, error)
+	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Warehouse, error)
+	Create(ctx context.Context, wh *Warehouse) error
+	Update(ctx context.Context, wh *Warehouse) error
+	Delete(ctx context.Context, publicID uuid.UUID) error
+}
+
 type InventoryCommandUsecase interface {
 	UpdateInventoryStock(ctx context.Context, payload UpdateStockPayload) error
+}
+
+type WarehouseUsecase interface {
+	GetWarehouses(ctx context.Context, p Pagination) ([]Warehouse, error)
+	CreateWarehouse(ctx context.Context, wh *Warehouse) error
+	UpdateWarehouse(ctx context.Context, wh *Warehouse) error
+	DeleteWarehouse(ctx context.Context, publicID uuid.UUID) error
 }

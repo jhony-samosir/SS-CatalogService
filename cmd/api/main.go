@@ -24,6 +24,8 @@ import (
 	bundleusecase "ss-catalog-service/internal/usecase/bundle"
 	importusecase "ss-catalog-service/internal/usecase/import_job"
 	categoryusecase "ss-catalog-service/internal/usecase/category"
+	brandusecase "ss-catalog-service/internal/usecase/brand"
+	attrusecase "ss-catalog-service/internal/usecase/attribute"
 	msrepo "ss-catalog-service/internal/repository/meilisearch"
 	"ss-catalog-service/internal/worker"
 )
@@ -95,7 +97,22 @@ func main() {
 	importUsecase := importusecase.NewImportUsecase(importRepo)
 
 	categoryRepo := pgmodel.NewCategoryRepository(db)
-	categoryUsecase := categoryusecase.NewCategoryUsecase(categoryRepo)
+	brandRepo := pgmodel.NewBrandRepository(db)
+	attrRepo := pgmodel.NewAttributeRepository(db)
+	tagRepo := pgmodel.NewTagRepository(db)
+	whRepo := pgmodel.NewWarehouseRepository(db)
+
+	// Master Data Cache
+	masterCache, err := cache.NewMasterDataCacheRepository(1 * time.Hour)
+	if err != nil {
+		log.Fatalf("Master cache initialization failed: %v", err)
+	}
+
+	categoryUsecase := categoryusecase.NewCategoryUsecase(categoryRepo, masterCache)
+	brandUsecase := brandusecase.NewBrandUsecase(brandRepo, masterCache)
+	attrUsecase := attrusecase.NewAttributeUsecase(attrRepo)
+	tagUsecase := attrusecase.NewTagUsecase(tagRepo)
+	whUsecase := inventoryusecase.NewWarehouseUsecase(whRepo)
 
 	sellerRepo := pgmodel.NewSellerRepository(db)
 
@@ -118,6 +135,10 @@ func main() {
 		PriceHistoryRepository:  priceRepo,
 		ImportUsecase:           importUsecase,
 		CategoryUsecase:         categoryUsecase,
+		BrandUsecase:            brandUsecase,
+		AttributeUsecase:        attrUsecase,
+		TagUsecase:              tagUsecase,
+		WarehouseUsecase:        whUsecase,
 		SellerRepository:        sellerRepo,
 		JWT:                   cfg.JWT,
 	})

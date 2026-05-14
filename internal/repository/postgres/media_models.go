@@ -19,28 +19,6 @@ type ProductVariantModel struct {
 
 func (ProductVariantModel) TableName() string { return "product_variants" }
 
-// ProductAttributeModel represents the database schema for product_attributes.
-type ProductAttributeModel struct {
-	BaseModel
-	Name      string `gorm:"type:varchar(255);not null"`
-	Code      string `gorm:"type:varchar(100);not null;uniqueIndex"`
-	InputType string `gorm:"type:varchar(50);not null;default:'select'"`
-	IsVariant bool   `gorm:"not null;default:true"`
-	SortOrder int    `gorm:"not null;default:0"`
-}
-
-func (ProductAttributeModel) TableName() string { return "product_attributes" }
-
-// AttributeValueModel represents the database schema for attribute_values.
-type AttributeValueModel struct {
-	BaseModel
-	AttributeID int    `gorm:"not null;index"`
-	Value       string `gorm:"type:varchar(255);not null"`
-	ColorHex    string `gorm:"type:varchar(7)"`
-	SortOrder   int    `gorm:"not null;default:0"`
-}
-
-func (AttributeValueModel) TableName() string { return "attribute_values" }
 
 // ProductVariantAttributeModel represents the database schema for product_variant_attributes.
 type ProductVariantAttributeModel struct {

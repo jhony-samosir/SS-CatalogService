@@ -8,13 +8,6 @@ type ProductCategory struct {
 	IsPrimary  bool `json:"is_primary"`
 }
 
-// Tag represents flat keyword tags for products.
-type Tag struct {
-	BaseEntity
-	Name string `json:"name"`
-	Slug string `json:"slug"`
-}
-
 // ProductTag maps a product to its tags (M2M).
 type ProductTag struct {
 	BaseEntity
@@ -39,12 +32,6 @@ type ProductSEO struct {
 	OGImageURL   string `json:"og_image_url"`
 }
 
-// CategorySEO represents SEO metadata for categories.
-type CategorySEO struct {
-	BaseEntity
-	CategoryID int `json:"category_id"`
-	SEOBase
-}
 
 // ProductTranslation represents localized product data.
 type ProductTranslation struct {
@@ -56,11 +43,3 @@ type ProductTranslation struct {
 	ShortDesc   string `json:"short_desc"`
 }
 
-// CategoryTranslation represents localized category names.
-type CategoryTranslation struct {
-	BaseEntity
-	CategoryID int    `json:"category_id"`
-	LangCode   string `json:"lang_code"`
-	Name       string `json:"name"`
-	Description string `json:"description"`
-}

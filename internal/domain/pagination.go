@@ -49,6 +49,3 @@ type ProductSearchResult struct {
 
 // ErrInvalidCursor is returned when the provided pagination cursor is malformed or invalid.
 var ErrInvalidCursor = errors.New("invalid or expired pagination cursor")
-
-// ErrInvalidInput is returned when search filters or pagination parameters fail business validation.
-var ErrInvalidInput = errors.New("invalid search or pagination input")

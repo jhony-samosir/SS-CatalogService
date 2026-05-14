@@ -12,7 +12,6 @@ var (
 	ErrProductNotFound    = errors.New("product not found")
 	ErrDuplicateProduct   = errors.New("product already exists")
 	ErrInternalDatabase   = errors.New("internal database error")
-	ErrUnauthorized       = errors.New("unauthorized: ownership verification failed")
 	ErrInvalidProductName = errors.New("product name cannot be empty")
 )
 
