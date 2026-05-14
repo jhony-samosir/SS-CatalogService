@@ -60,6 +60,7 @@ type AttributeRepository interface {
 	Create(ctx context.Context, attr *ProductAttribute) error
 	Update(ctx context.Context, attr *ProductAttribute) error
 	Delete(ctx context.Context, publicID uuid.UUID) error
+	CountUsage(ctx context.Context, attributeID int) (int64, error)
 	
 	CreateValue(ctx context.Context, val *AttributeValue) error
 	DeleteValue(ctx context.Context, valID int) error

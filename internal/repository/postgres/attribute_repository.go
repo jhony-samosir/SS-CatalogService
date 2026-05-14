@@ -127,6 +127,16 @@ func (r *attributeRepository) Delete(ctx context.Context, publicID uuid.UUID) er
 	return db.Where("public_id = ?", publicID).Delete(&ProductAttributeModel{}).Error
 }
 
+func (r *attributeRepository) CountUsage(ctx context.Context, attributeID int) (int64, error) {
+	var count int64
+	db := getDB(ctx, r.db)
+	// Check in ProductVariantAttribute table
+	if err := db.Model(&ProductVariantAttributeModel{}).Where("attribute_id = ?", attributeID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (r *attributeRepository) CreateValue(ctx context.Context, val *domain.AttributeValue) error {
 	model := &AttributeValueModel{
 		BaseModel:   BaseModel{PublicID: val.PublicID},

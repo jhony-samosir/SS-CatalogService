@@ -31,5 +31,21 @@ func (u *warehouseUsecase) UpdateWarehouse(ctx context.Context, wh *domain.Wareh
 }
 
 func (u *warehouseUsecase) DeleteWarehouse(ctx context.Context, publicID uuid.UUID) error {
+	wh, err := u.repo.FindByPublicID(ctx, publicID)
+	if err != nil {
+		return err
+	}
+	if wh == nil {
+		return domain.ErrNotFound
+	}
+
+	count, err := u.repo.CountInventory(ctx, wh.ID)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return domain.ErrEntityInUse
+	}
+
 	return u.repo.Delete(ctx, publicID)
 }

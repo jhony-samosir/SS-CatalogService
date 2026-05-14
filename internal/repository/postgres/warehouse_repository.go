@@ -117,3 +117,12 @@ func (r *warehouseRepository) Delete(ctx context.Context, publicID uuid.UUID) er
 	db := getDB(ctx, r.db)
 	return db.Where("public_id = ?", publicID).Delete(&WarehouseModel{}).Error
 }
+
+func (r *warehouseRepository) CountInventory(ctx context.Context, warehouseID int) (int64, error) {
+	var count int64
+	db := getDB(ctx, r.db)
+	if err := db.Model(&ProductInventoryModel{}).Where("warehouse_id = ?", warehouseID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}

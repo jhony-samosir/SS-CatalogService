@@ -118,6 +118,10 @@ func (h *AttributeHandler) DeleteAttribute(c *gin.Context) {
 	}
 
 	if err := h.usecase.DeleteAttribute(c.Request.Context(), publicID); err != nil {
+		if err == domain.ErrEntityInUse {
+			response.Error(c, http.StatusConflict, "Attribute is currently in use", err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, "Failed to delete attribute", err.Error())
 		return
 	}

@@ -102,6 +102,10 @@ func (h *WarehouseHandler) DeleteWarehouse(c *gin.Context) {
 	}
 
 	if err := h.usecase.DeleteWarehouse(c.Request.Context(), publicID); err != nil {
+		if err == domain.ErrEntityInUse {
+			response.Error(c, http.StatusConflict, "Warehouse is currently in use", err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, "Failed to delete warehouse", err.Error())
 		return
 	}

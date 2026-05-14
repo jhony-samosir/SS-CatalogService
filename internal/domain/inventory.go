@@ -119,6 +119,7 @@ type WarehouseRepository interface {
 	Create(ctx context.Context, wh *Warehouse) error
 	Update(ctx context.Context, wh *Warehouse) error
 	Delete(ctx context.Context, publicID uuid.UUID) error
+	CountInventory(ctx context.Context, warehouseID int) (int64, error)
 }
 
 type InventoryCommandUsecase interface {

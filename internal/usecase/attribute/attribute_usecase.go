@@ -35,6 +35,22 @@ func (u *attributeUsecase) UpdateAttribute(ctx context.Context, attr *domain.Pro
 }
 
 func (u *attributeUsecase) DeleteAttribute(ctx context.Context, publicID uuid.UUID) error {
+	attr, err := u.attrRepo.FindByPublicID(ctx, publicID)
+	if err != nil {
+		return err
+	}
+	if attr == nil {
+		return domain.ErrNotFound
+	}
+
+	count, err := u.attrRepo.CountUsage(ctx, attr.ID)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return domain.ErrEntityInUse
+	}
+
 	return u.attrRepo.Delete(ctx, publicID)
 }
 
