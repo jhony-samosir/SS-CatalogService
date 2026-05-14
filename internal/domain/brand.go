@@ -21,6 +21,7 @@ type Brand struct {
 // BrandRepository defines the contract for brand data access.
 type BrandRepository interface {
 	FindAll(ctx context.Context, p Pagination) ([]Brand, error)
+	Count(ctx context.Context) (int64, error)
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Brand, error)
 	Create(ctx context.Context, brand *Brand) error
 	Update(ctx context.Context, brand *Brand) error
@@ -30,7 +31,7 @@ type BrandRepository interface {
 
 // BrandUsecase defines the business logic for brands.
 type BrandUsecase interface {
-	GetBrands(ctx context.Context, p Pagination) ([]Brand, error)
+	GetBrands(ctx context.Context, p Pagination) ([]Brand, int64, error)
 	GetBrandByPublicID(ctx context.Context, publicID uuid.UUID) (*Brand, error)
 	CreateBrand(ctx context.Context, brand *Brand) error
 	UpdateBrand(ctx context.Context, brand *Brand) error

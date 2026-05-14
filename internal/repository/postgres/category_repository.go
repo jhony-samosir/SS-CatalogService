@@ -176,3 +176,12 @@ func (r *categoryRepository) CountProducts(ctx context.Context, categoryID int) 
 	}
 	return count, nil
 }
+
+func (r *categoryRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	db := getDB(ctx, r.db)
+	if err := db.Model(&CategoryModel{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}

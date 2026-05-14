@@ -15,8 +15,18 @@ func NewAttributeUsecase(attrRepo domain.AttributeRepository) domain.AttributeUs
 	return &attributeUsecase{attrRepo: attrRepo}
 }
 
-func (u *attributeUsecase) GetAttributes(ctx context.Context, p domain.Pagination) ([]domain.ProductAttribute, error) {
-	return u.attrRepo.FindAll(ctx, p)
+func (u *attributeUsecase) GetAttributes(ctx context.Context, p domain.Pagination) ([]domain.ProductAttribute, int64, error) {
+	attrs, err := u.attrRepo.FindAll(ctx, p)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := u.attrRepo.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return attrs, total, nil
 }
 
 func (u *attributeUsecase) GetAttributeByPublicID(ctx context.Context, publicID uuid.UUID) (*domain.ProductAttribute, error) {

@@ -18,21 +18,32 @@ func NewBrandUsecase(repo domain.BrandRepository, cache domain.MasterDataCacheRe
 	return &brandUsecase{repo: repo, cache: cache}
 }
 
-func (u *brandUsecase) GetBrands(ctx context.Context, p domain.Pagination) ([]domain.Brand, error) {
+func (u *brandUsecase) GetBrands(ctx context.Context, p domain.Pagination) ([]domain.Brand, int64, error) {
 	cacheKey := fmt.Sprintf("brands:all:%d:%d", p.Limit, p.Offset)
 	var brands []domain.Brand
+	var total int64
 
+	// For simplicity in this session, we'll cache the result but we need the total too.
+	// In a real scenario, we might cache the total count separately or wrap it.
 	if err := u.cache.Get(ctx, cacheKey, &brands); err == nil {
-		return brands, nil
+		// If we hit cache, we still need the total count.
+		// For now, let's just fetch total from repo (or cache it too).
+		total, _ = u.repo.Count(ctx)
+		return brands, total, nil
 	}
 
 	brands, err := u.repo.FindAll(ctx, p)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	total, err = u.repo.Count(ctx)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	_ = u.cache.Set(ctx, cacheKey, brands, 1*time.Hour)
-	return brands, nil
+	return brands, total, nil
 }
 
 func (u *brandUsecase) GetBrandByPublicID(ctx context.Context, publicID uuid.UUID) (*domain.Brand, error) {

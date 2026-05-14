@@ -15,8 +15,18 @@ func NewWarehouseUsecase(repo domain.WarehouseRepository) domain.WarehouseUsecas
 	return &warehouseUsecase{repo: repo}
 }
 
-func (u *warehouseUsecase) GetWarehouses(ctx context.Context, p domain.Pagination) ([]domain.Warehouse, error) {
-	return u.repo.FindAll(ctx, p)
+func (u *warehouseUsecase) GetWarehouses(ctx context.Context, p domain.Pagination) ([]domain.Warehouse, int64, error) {
+	items, err := u.repo.FindAll(ctx, p)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := u.repo.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
 }
 
 func (u *warehouseUsecase) CreateWarehouse(ctx context.Context, wh *domain.Warehouse) error {

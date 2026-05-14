@@ -126,3 +126,12 @@ func (r *brandRepository) CountProducts(ctx context.Context, brandID int) (int64
 	}
 	return count, nil
 }
+
+func (r *brandRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	db := getDB(ctx, r.db)
+	if err := db.Model(&BrandModel{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}

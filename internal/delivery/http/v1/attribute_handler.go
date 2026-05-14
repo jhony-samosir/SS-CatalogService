@@ -20,17 +20,16 @@ func NewAttributeHandler(u domain.AttributeUsecase) *AttributeHandler {
 
 func (h *AttributeHandler) GetAttributes(c *gin.Context) {
 	var p domain.Pagination
-	if err := c.ShouldBindQuery(&p); err != nil {
-		p = domain.Pagination{Limit: 100, Offset: 0}
-	}
+	_ = c.ShouldBindQuery(&p)
+	p.SetDefaults()
 
-	attributes, err := h.usecase.GetAttributes(c.Request.Context(), p)
+	attributes, total, err := h.usecase.GetAttributes(c.Request.Context(), p)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to fetch attributes", err.Error())
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve attributes", err.Error())
 		return
 	}
 
-	response.JSON(c, http.StatusOK, "Attributes fetched successfully", attributes)
+	response.PaginatedJSON(c, http.StatusOK, "Attributes retrieved successfully", attributes, total, p.Page, p.Limit)
 }
 
 func (h *AttributeHandler) GetAttribute(c *gin.Context) {

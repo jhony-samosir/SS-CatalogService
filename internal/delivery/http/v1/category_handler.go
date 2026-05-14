@@ -20,17 +20,16 @@ func NewCategoryHandler(u domain.CategoryUsecase) *CategoryHandler {
 
 func (h *CategoryHandler) GetCategories(c *gin.Context) {
 	var p domain.Pagination
-	if err := c.ShouldBindQuery(&p); err != nil {
-		p = domain.Pagination{Limit: 100, Offset: 0}
-	}
+	_ = c.ShouldBindQuery(&p)
+	p.SetDefaults()
 
-	categories, err := h.usecase.GetCategories(c.Request.Context(), p)
+	categories, total, err := h.usecase.GetCategories(c.Request.Context(), p)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to fetch categories", err.Error())
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve categories", err.Error())
 		return
 	}
 
-	response.JSON(c, http.StatusOK, "Categories fetched successfully", categories)
+	response.PaginatedJSON(c, http.StatusOK, "Categories retrieved successfully", categories, total, p.Page, p.Limit)
 }
 
 func (h *CategoryHandler) GetCategory(c *gin.Context) {

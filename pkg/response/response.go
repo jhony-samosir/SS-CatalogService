@@ -14,11 +14,31 @@ type Response struct {
 	Errors  interface{} `json:"errors,omitempty"`
 }
 
+type PaginatedData struct {
+	Items      interface{} `json:"items"`
+	TotalCount int64       `json:"total_count"`
+	Page       int         `json:"page"`
+	Limit      int         `json:"limit"`
+}
+
 func JSON(c *gin.Context, status int, message string, data interface{}) {
 	c.JSON(status, Response{
 		Status:  status,
 		Message: message,
 		Data:    data,
+	})
+}
+
+func PaginatedJSON(c *gin.Context, status int, message string, items interface{}, total int64, page, limit int) {
+	c.JSON(status, Response{
+		Status:  status,
+		Message: message,
+		Data: PaginatedData{
+			Items:      items,
+			TotalCount: total,
+			Page:       page,
+			Limit:      limit,
+		},
 	})
 }
 

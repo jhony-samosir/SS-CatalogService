@@ -4,8 +4,19 @@ import "errors"
 
 // Pagination represents a bounded query request (offset-based).
 type Pagination struct {
-	Limit  int
-	Offset int
+	Page   int `form:"page"`
+	Limit  int `form:"limit"`
+	Offset int `form:"offset"`
+}
+
+func (p *Pagination) SetDefaults() {
+	if p.Page <= 0 {
+		p.Page = 1
+	}
+	if p.Limit <= 0 {
+		p.Limit = 10
+	}
+	p.Offset = (p.Page - 1) * p.Limit
 }
 
 // GetProductSearchQuery represents all optional filters for the product search API.

@@ -56,14 +56,12 @@ type ProductVariantAttribute struct {
 // AttributeRepository defines the contract for attribute data access.
 type AttributeRepository interface {
 	FindAll(ctx context.Context, p Pagination) ([]ProductAttribute, error)
+	Count(ctx context.Context) (int64, error)
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*ProductAttribute, error)
 	Create(ctx context.Context, attr *ProductAttribute) error
 	Update(ctx context.Context, attr *ProductAttribute) error
 	Delete(ctx context.Context, publicID uuid.UUID) error
-	CountUsage(ctx context.Context, attributeID int) (int64, error)
-	
-	CreateValue(ctx context.Context, val *AttributeValue) error
-	DeleteValue(ctx context.Context, valID int) error
+	CountUsage(ctx context.Context, attrID int) (int64, error)
 }
 
 // TagRepository defines the contract for tag data access.
@@ -75,7 +73,7 @@ type TagRepository interface {
 
 // AttributeUsecase defines the business logic for attributes.
 type AttributeUsecase interface {
-	GetAttributes(ctx context.Context, p Pagination) ([]ProductAttribute, error)
+	GetAttributes(ctx context.Context, p Pagination) ([]ProductAttribute, int64, error)
 	GetAttributeByPublicID(ctx context.Context, publicID uuid.UUID) (*ProductAttribute, error)
 	CreateAttribute(ctx context.Context, attr *ProductAttribute) error
 	UpdateAttribute(ctx context.Context, attr *ProductAttribute) error

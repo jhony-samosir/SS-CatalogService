@@ -18,21 +18,28 @@ func NewCategoryUsecase(repo domain.CategoryRepository, cache domain.MasterDataC
 	return &categoryUsecase{repo: repo, cache: cache}
 }
 
-func (u *categoryUsecase) GetCategories(ctx context.Context, p domain.Pagination) ([]domain.Category, error) {
+func (u *categoryUsecase) GetCategories(ctx context.Context, p domain.Pagination) ([]domain.Category, int64, error) {
 	cacheKey := fmt.Sprintf("categories:all:%d:%d", p.Limit, p.Offset)
 	var categories []domain.Category
+	var total int64
 
 	if err := u.cache.Get(ctx, cacheKey, &categories); err == nil {
-		return categories, nil
+		total, _ = u.repo.Count(ctx)
+		return categories, total, nil
 	}
 
 	categories, err := u.repo.FindAll(ctx, p)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	total, err = u.repo.Count(ctx)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	_ = u.cache.Set(ctx, cacheKey, categories, 1*time.Hour)
-	return categories, nil
+	return categories, total, nil
 }
 
 func (u *categoryUsecase) GetCategoryByPublicID(ctx context.Context, publicID uuid.UUID) (*domain.Category, error) {

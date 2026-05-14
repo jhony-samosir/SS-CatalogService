@@ -44,6 +44,7 @@ type CategorySEO struct {
 // CategoryRepository defines the contract for category data access.
 type CategoryRepository interface {
 	FindAll(ctx context.Context, p Pagination) ([]Category, error)
+	Count(ctx context.Context) (int64, error)
 	FindByID(ctx context.Context, id int) (*Category, error)
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Category, error)
 	Create(ctx context.Context, category *Category) error
@@ -55,7 +56,7 @@ type CategoryRepository interface {
 
 // CategoryUsecase defines the business logic for categories.
 type CategoryUsecase interface {
-	GetCategories(ctx context.Context, p Pagination) ([]Category, error)
+	GetCategories(ctx context.Context, p Pagination) ([]Category, int64, error)
 	GetCategoryByPublicID(ctx context.Context, publicID uuid.UUID) (*Category, error)
 	CreateCategory(ctx context.Context, category *Category) error
 	UpdateCategory(ctx context.Context, category *Category) error

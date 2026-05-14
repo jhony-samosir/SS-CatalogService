@@ -20,17 +20,16 @@ func NewBrandHandler(u domain.BrandUsecase) *BrandHandler {
 
 func (h *BrandHandler) GetBrands(c *gin.Context) {
 	var p domain.Pagination
-	if err := c.ShouldBindQuery(&p); err != nil {
-		p = domain.Pagination{Limit: 100, Offset: 0}
-	}
+	_ = c.ShouldBindQuery(&p)
+	p.SetDefaults()
 
-	brands, err := h.usecase.GetBrands(c.Request.Context(), p)
+	brands, total, err := h.usecase.GetBrands(c.Request.Context(), p)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to fetch brands", err.Error())
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve brands", err.Error())
 		return
 	}
 
-	response.JSON(c, http.StatusOK, "Brands fetched successfully", brands)
+	response.PaginatedJSON(c, http.StatusOK, "Brands retrieved successfully", brands, total, p.Page, p.Limit)
 }
 
 func (h *BrandHandler) GetBrand(c *gin.Context) {

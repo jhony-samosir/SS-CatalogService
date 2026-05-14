@@ -115,6 +115,7 @@ type InventoryRepository interface {
 
 type WarehouseRepository interface {
 	FindAll(ctx context.Context, p Pagination) ([]Warehouse, error)
+	Count(ctx context.Context) (int64, error)
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Warehouse, error)
 	Create(ctx context.Context, wh *Warehouse) error
 	Update(ctx context.Context, wh *Warehouse) error
@@ -126,8 +127,9 @@ type InventoryCommandUsecase interface {
 	UpdateInventoryStock(ctx context.Context, payload UpdateStockPayload) error
 }
 
+// WarehouseUsecase defines the business logic for warehouses.
 type WarehouseUsecase interface {
-	GetWarehouses(ctx context.Context, p Pagination) ([]Warehouse, error)
+	GetWarehouses(ctx context.Context, p Pagination) ([]Warehouse, int64, error)
 	CreateWarehouse(ctx context.Context, wh *Warehouse) error
 	UpdateWarehouse(ctx context.Context, wh *Warehouse) error
 	DeleteWarehouse(ctx context.Context, publicID uuid.UUID) error

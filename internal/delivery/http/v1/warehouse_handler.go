@@ -20,17 +20,16 @@ func NewWarehouseHandler(u domain.WarehouseUsecase) *WarehouseHandler {
 
 func (h *WarehouseHandler) GetWarehouses(c *gin.Context) {
 	var p domain.Pagination
-	if err := c.ShouldBindQuery(&p); err != nil {
-		p = domain.Pagination{Limit: 100, Offset: 0}
-	}
+	_ = c.ShouldBindQuery(&p)
+	p.SetDefaults()
 
-	warehouses, err := h.usecase.GetWarehouses(c.Request.Context(), p)
+	warehouses, total, err := h.usecase.GetWarehouses(c.Request.Context(), p)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, "Failed to fetch warehouses", err.Error())
+		response.Error(c, http.StatusInternalServerError, "Failed to retrieve warehouses", err.Error())
 		return
 	}
 
-	response.JSON(c, http.StatusOK, "Warehouses fetched successfully", warehouses)
+	response.PaginatedJSON(c, http.StatusOK, "Warehouses retrieved successfully", warehouses, total, p.Page, p.Limit)
 }
 
 func (h *WarehouseHandler) CreateWarehouse(c *gin.Context) {

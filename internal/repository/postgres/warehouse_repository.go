@@ -126,3 +126,12 @@ func (r *warehouseRepository) CountInventory(ctx context.Context, warehouseID in
 	}
 	return count, nil
 }
+
+func (r *warehouseRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	db := getDB(ctx, r.db)
+	if err := db.Model(&WarehouseModel{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
