@@ -6,25 +6,6 @@ import (
 	"time"
 )
 
-// Seller represents the vendor information.
-type Seller struct {
-	BaseEntity
-	Name       string
-	Code       string
-	IsActive   bool
-	VerifiedAt *time.Time
-}
-
-// SellerProduct maps which sellers are authorized to sell each product.
-type SellerProduct struct {
-	BaseEntity
-	SellerID   int
-	ProductID  int
-	IsActive   bool
-	ApprovedAt *time.Time
-	ApprovedBy string
-}
-
 // AuditLog represents a central audit trail for entity mutations.
 type AuditLog struct {
 	BaseEntity

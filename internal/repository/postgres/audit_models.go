@@ -9,29 +9,6 @@ import (
 	"gorm.io/datatypes"
 )
 
-// SellerModel represents the database schema for sellers.
-type SellerModel struct {
-	BaseModel
-	Name       string     `gorm:"type:varchar(255);not null"`
-	Code       string     `gorm:"type:varchar(100);not null;uniqueIndex"`
-	IsActive   bool       `gorm:"not null;default:true"`
-	VerifiedAt *time.Time `gorm:"null"`
-}
-
-func (SellerModel) TableName() string { return "sellers" }
-
-// SellerProductModel represents the database schema for seller_products.
-type SellerProductModel struct {
-	BaseModel
-	SellerID   int        `gorm:"not null;index"`
-	ProductID  int        `gorm:"not null;index"`
-	IsActive   bool       `gorm:"not null;default:true"`
-	ApprovedAt *time.Time `gorm:"null"`
-	ApprovedBy string     `gorm:"type:varchar(255)"`
-}
-
-func (SellerProductModel) TableName() string { return "seller_products" }
-
 // AuditLogModel represents the database schema for audit_logs.
 type AuditLogModel struct {
 	BaseModel

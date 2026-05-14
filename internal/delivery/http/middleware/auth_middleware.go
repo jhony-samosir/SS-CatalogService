@@ -14,7 +14,7 @@ import (
 )
 
 // AuthMiddleware extracts authentication claims from a JWT using RS256.
-func AuthMiddleware(cfg config.JWTConfig) gin.HandlerFunc {
+func AuthMiddleware(cfg config.JWTConfig, sellerRepo domain.SellerRepository) gin.HandlerFunc {
 	// Pre-load public key for performance
 	verifyKey, err := loadPublicKey(cfg.PublicKeyPath)
 	if err != nil {
@@ -54,18 +54,26 @@ func AuthMiddleware(cfg config.JWTConfig) gin.HandlerFunc {
 
 		var userCtx domain.UserContext
 		
-		// Extract UserID (sub)
+		// 1. Extract UserID (sub)
 		if sub, ok := claims["sub"].(string); ok {
 			userCtx.UserID = sub
 		}
 
-		// Extract SellerID (custom claim)
+		// 2. Resolve SellerID (from claim or database)
 		if sid, ok := claims["seller_id"].(float64); ok {
 			id := int(sid)
 			userCtx.SellerID = &id
+		} else if userCtx.UserID != "" && sellerRepo != nil {
+			// Lazy resolution: lookup in database if not in token
+			var uID int
+			fmt.Sscanf(userCtx.UserID, "%d", &uID) // Convert string sub to int
+			
+			if sid, err := sellerRepo.FindSellerIDByUserID(c.Request.Context(), uID); err == nil && sid != 0 {
+				userCtx.SellerID = &sid
+			}
 		}
 
-		// Extract Roles (Enterprise mapping)
+		// 3. Extract Roles (Enterprise mapping)
 		if roles, ok := claims["roles"].([]interface{}); ok {
 			userCtx.Roles = make([]string, len(roles))
 			for i, r := range roles {

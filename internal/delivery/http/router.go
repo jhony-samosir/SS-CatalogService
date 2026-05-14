@@ -20,6 +20,7 @@ type RouterConfig struct {
 	PriceHistoryRepository  domain.PriceHistoryRepository
 	ImportUsecase           domain.ImportUsecase
 	CategoryUsecase         domain.CategoryUsecase
+	SellerRepository        domain.SellerRepository
 	JWT                   config.JWTConfig
 }
 
@@ -47,7 +48,7 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 
 	// Catalog API Group
 	api := r.Group("/api/catalog/v1")
-	api.Use(middleware.AuthMiddleware(cfg.JWT))
+	api.Use(middleware.AuthMiddleware(cfg.JWT, cfg.SellerRepository))
 	{
 		products := api.Group("/products")
 		{

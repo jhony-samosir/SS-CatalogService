@@ -97,6 +97,8 @@ func main() {
 	categoryRepo := pgmodel.NewCategoryRepository(db)
 	categoryUsecase := categoryusecase.NewCategoryUsecase(categoryRepo)
 
+	sellerRepo := pgmodel.NewSellerRepository(db)
+
 	// --- Background Workers ---
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -116,6 +118,7 @@ func main() {
 		PriceHistoryRepository:  priceRepo,
 		ImportUsecase:           importUsecase,
 		CategoryUsecase:         categoryUsecase,
+		SellerRepository:        sellerRepo,
 		JWT:                   cfg.JWT,
 	})
 
