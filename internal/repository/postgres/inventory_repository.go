@@ -17,6 +17,54 @@ func NewInventoryRepository(db *gorm.DB) domain.InventoryRepository {
 	return &inventoryRepository{db: db}
 }
 
+func (r *inventoryRepository) FindAll(ctx context.Context, p domain.Pagination, warehouseID string, variantID string) ([]domain.ProductInventory, int64, error) {
+	var results []domain.ProductInventory
+	var total int64
+	db := getDB(ctx, r.db)
+
+	query := db.Table("product_inventory").
+		Select(`
+			product_inventory.id, 
+			product_inventory.public_id, 
+			product_inventory.created_at, 
+			product_inventory.updated_at,
+			product_inventory.variant_id, 
+			product_inventory.warehouse_id, 
+			product_inventory.quantity_on_hand, 
+			product_inventory.quantity_reserved, 
+			product_inventory.low_stock_alert,
+			products.name as product_name, 
+			product_variants.name as variant_name, 
+			product_variants.sku, 
+			warehouses.name as warehouse_name
+		`).
+		Joins("JOIN product_variants ON product_variants.id = product_inventory.variant_id").
+		Joins("JOIN products ON products.id = product_variants.product_id").
+		Joins("JOIN warehouses ON warehouses.id = product_inventory.warehouse_id").
+		Where("product_inventory.deleted_at IS NULL")
+
+	if warehouseID != "" {
+		query = query.Where("product_inventory.warehouse_id = ?", warehouseID)
+	}
+	if variantID != "" {
+		query = query.Where("product_inventory.variant_id = ?", variantID)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if p.Limit > 0 {
+		query = query.Limit(p.Limit).Offset(p.Offset)
+	}
+
+	if err := query.Scan(&results).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
+}
+
 func (r *inventoryRepository) GetInventoryForUpdate(ctx context.Context, variantID int, warehouseID int) (*domain.ProductInventory, error) {
 	var model ProductInventoryModel
 	db := getDB(ctx, r.db)

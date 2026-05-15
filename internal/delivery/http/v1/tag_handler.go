@@ -20,16 +20,17 @@ func NewTagHandler(u domain.TagUsecase) *TagHandler {
 func (h *TagHandler) GetTags(c *gin.Context) {
 	var p domain.Pagination
 	if err := c.ShouldBindQuery(&p); err != nil {
-		p = domain.Pagination{Limit: 100, Offset: 0}
+		p.SetDefaults()
 	}
+	p.SetDefaults()
 
-	tags, err := h.usecase.GetTags(c.Request.Context(), p)
+	tags, total, err := h.usecase.GetTags(c.Request.Context(), p)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "Failed to fetch tags", err.Error())
 		return
 	}
 
-	response.JSON(c, http.StatusOK, "Tags fetched successfully", tags)
+	response.PaginatedJSON(c, http.StatusOK, "Tags fetched successfully", tags, total, p.Page, p.Limit)
 }
 
 func (h *TagHandler) CreateTag(c *gin.Context) {

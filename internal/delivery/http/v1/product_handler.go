@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 	"ss-catalog-service/internal/domain"
+	"ss-catalog-service/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -40,20 +41,26 @@ type UpdateProductRequest struct {
 }
 
 type ProductResponse struct {
-	ID      uuid.UUID `json:"id"`
-	Name    string    `json:"name"`
-	Slug    string    `json:"slug"`
-	Status  string    `json:"status"`
-	BrandID *int      `json:"brand_id,omitempty"`
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	Slug     string    `json:"slug"`
+	Status   string    `json:"status"`
+	Price    float64   `json:"price"`
+	ImageURL string    `json:"image_url"`
+	Rating   float64   `json:"rating"`
+	BrandID  *int      `json:"brand_id,omitempty"`
 }
 
 func toProductResponse(p *domain.Product) ProductResponse {
 	return ProductResponse{
-		ID:      p.PublicID,
-		Name:    p.Name,
-		Slug:    p.Slug,
-		Status:  string(p.Status),
-		BrandID: p.BrandID,
+		ID:       p.PublicID,
+		Name:     p.Name,
+		Slug:     p.Slug,
+		Status:   string(p.Status),
+		Price:    0, // SPU level usually doesn't have price, variants do. Defaulting to 0.
+		ImageURL: p.ImageURL,
+		Rating:   0, // Defaulting to 0
+		BrandID:  p.BrandID,
 	}
 }
 
@@ -152,48 +159,32 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 	c.JSON(http.StatusOK, toProductResponse(product))
 }
 
-// GetProducts handles GET /api/v1/products?limit=10&offset=0
+// GetProducts handles GET /api/v1/products?page=1&limit=10
 func (h *ProductHandler) GetProducts(c *gin.Context) {
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	if err != nil || limit <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+	var p domain.Pagination
+	if err := c.ShouldBindQuery(&p); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid pagination parameters"})
 		return
 	}
-	offset, err := strconv.Atoi(c.DefaultQuery("offset", "0"))
-	if err != nil || offset < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid offset parameter"})
-		return
-	}
+	p.SetDefaults()
 
-	// Hard cap for safety
-	if limit > 100 {
-		limit = 100
-	}
-
-	products, err := h.queryUsecase.GetAllProducts(c.Request.Context(), domain.Pagination{
-		Limit:  limit,
-		Offset: offset,
-	})
+	products, total, err := h.queryUsecase.GetAllProducts(c.Request.Context(), p)
 	if err != nil {
 		log.Printf("ERROR [GetProducts]: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve products"})
 		return
 	}
 
-	response := make([]ProductResponse, len(products))
+	responseItems := make([]ProductResponse, len(products))
 	for i := range products {
-		response[i] = toProductResponse(&products[i])
+		responseItems[i] = toProductResponse(&products[i])
 	}
 
 	// Add Caching Headers
 	c.Header("Cache-Control", "public, max-age=60")
 	c.Header("Vary", "Accept-Language, Authorization")
 
-	c.JSON(http.StatusOK, gin.H{
-		"data":   response,
-		"limit":  limit,
-		"offset": offset,
-	})
+	response.PaginatedJSON(c, http.StatusOK, "Products retrieved successfully", responseItems, total, p.Page, p.Limit)
 }
 
 // SearchProducts handles GET /api/v1/products/search

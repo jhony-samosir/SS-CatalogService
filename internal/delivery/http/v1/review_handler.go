@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"ss-catalog-service/internal/domain"
+	"ss-catalog-service/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -97,7 +98,12 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": reviews})
+	var p domain.Pagination
+	p.Limit = limit
+	p.Offset = offset
+	p.SetDefaults() // To ensure page is calculated if limit/offset used
+
+	response.PaginatedJSON(c, http.StatusOK, "Product reviews retrieved successfully", reviews, int64(len(reviews)), p.Page, p.Limit)
 }
 
 func (h *ReviewHandler) GetRatingSummary(c *gin.Context) {
@@ -141,12 +147,12 @@ func (h *ReviewHandler) GetAllReviews(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"data": gin.H{
-			"items":       reviews,
-			"total_count": total,
-		},
-	})
+	var p domain.Pagination
+	p.Limit = limit
+	p.Offset = offset
+	p.SetDefaults()
+
+	response.PaginatedJSON(c, http.StatusOK, "All reviews retrieved successfully", reviews, total, p.Page, p.Limit)
 }
 
 func (h *ReviewHandler) UpdateReviewStatus(c *gin.Context) {

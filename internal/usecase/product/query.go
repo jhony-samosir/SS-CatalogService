@@ -34,12 +34,12 @@ func NewProductQueryUsecase(
 	}
 }
 
-func (u *productQueryUsecase) GetAllProducts(ctx context.Context, p domain.Pagination) ([]domain.Product, error) {
-	products, err := u.repo.FindAll(ctx, p)
+func (u *productQueryUsecase) GetAllProducts(ctx context.Context, p domain.Pagination) ([]domain.Product, int64, error) {
+	products, total, err := u.repo.FindAll(ctx, p)
 	if err != nil {
-		return nil, fmt.Errorf("productQueryUsecase.GetAllProducts: %w", err)
+		return nil, 0, fmt.Errorf("productQueryUsecase.GetAllProducts: %w", err)
 	}
-	return products, nil
+	return products, total, nil
 }
 
 func (u *productQueryUsecase) GetProductByPublicID(ctx context.Context, publicID uuid.UUID) (*domain.Product, error) {

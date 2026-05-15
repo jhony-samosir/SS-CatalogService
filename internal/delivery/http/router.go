@@ -13,6 +13,7 @@ type AppUsecases struct {
 	ProductQuery     domain.ProductQueryUsecase
 	VariantCommand   domain.VariantCommandUsecase
 	InventoryCommand domain.InventoryCommandUsecase
+	InventoryQuery   domain.InventoryQueryUsecase
 	Review           domain.ReviewUsecase
 	Bundle           domain.BundleUsecase
 	Import           domain.ImportUsecase
@@ -41,7 +42,7 @@ type RouterConfig struct {
 func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 	productHandler := v1.NewProductHandler(cfg.Usecases.ProductCommand, cfg.Usecases.ProductQuery)
 	variantHandler := v1.NewVariantHandler(cfg.Usecases.VariantCommand)
-	inventoryHandler := v1.NewInventoryHandler(cfg.Usecases.InventoryCommand)
+	inventoryHandler := v1.NewInventoryHandler(cfg.Usecases.InventoryCommand, cfg.Usecases.InventoryQuery)
 	sellerHandler := v1.NewSellerHandler()
 	auditHandler := v1.NewAuditHandler()
 	reviewHandler := v1.NewReviewHandler(cfg.Usecases.Review, cfg.Usecases.ProductQuery)
@@ -85,6 +86,7 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 
 		inventory := api.Group("/inventory")
 		{
+			inventory.GET("", inventoryHandler.GetInventory)
 			inventory.POST("/adjust", inventoryHandler.AdjustStock)
 		}
 

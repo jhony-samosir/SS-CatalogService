@@ -25,24 +25,31 @@ func NewProductRepository(db *gorm.DB) domain.ProductRepository {
 	return &productRepository{db: db}
 }
 
-func (r *productRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.Product, error) {
+func (r *productRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.Product, int64, error) {
 	var models []ProductModel
+	var total int64
 	db := getDB(ctx, r.db)
 
-	query := db
+	query := db.Model(&ProductModel{}).Where("deleted_at IS NULL")
+
+	// Get total count before applying limit/offset
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	if p.Limit > 0 {
 		query = query.Limit(p.Limit).Offset(p.Offset)
 	}
 
 	if err := query.Find(&models).Error; err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	products := make([]domain.Product, len(models))
 	for i, m := range models {
 		products[i] = m.ToDomain()
 	}
-	return products, nil
+	return products, total, nil
 }
 
 func (r *productRepository) FindByID(ctx context.Context, id int) (*domain.Product, error) {

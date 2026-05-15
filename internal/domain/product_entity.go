@@ -55,7 +55,7 @@ type Product struct {
 
 // ProductRepository defines the contract for product data access.
 type ProductRepository interface {
-	FindAll(ctx context.Context, p Pagination) ([]Product, error)
+	FindAll(ctx context.Context, p Pagination) ([]Product, int64, error)
 	FindByID(ctx context.Context, id int) (*Product, error)
 	FindByPublicID(ctx context.Context, publicID uuid.UUID) (*Product, error)
 	GetProductDetails(ctx context.Context, publicID uuid.UUID, langCode string) (*Product, error)

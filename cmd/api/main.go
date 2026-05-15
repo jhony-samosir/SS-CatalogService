@@ -85,6 +85,7 @@ func main() {
 
 	inventoryRepo := pgmodel.NewInventoryRepository(db)
 	inventoryCmd := inventoryusecase.NewInventoryCommandUsecase(inventoryRepo, txManager)
+	inventoryQry := inventoryusecase.NewInventoryQueryUsecase(inventoryRepo)
 
 	reviewRepo := pgmodel.NewReviewRepository(db)
 	reviewUsecase := reviewusecase.NewReviewUsecase(reviewRepo)
@@ -135,6 +136,7 @@ func main() {
 			ProductQuery:     productQry,
 			VariantCommand:   variantCmd,
 			InventoryCommand: inventoryCmd,
+			InventoryQuery:   inventoryQry,
 			Review:           reviewUsecase,
 			Bundle:           bundleUsecase,
 			Import:           importUsecase,

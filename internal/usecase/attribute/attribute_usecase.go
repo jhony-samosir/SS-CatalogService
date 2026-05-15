@@ -73,7 +73,7 @@ func NewTagUsecase(repo domain.TagRepository) domain.TagUsecase {
 	return &tagUsecase{repo: repo}
 }
 
-func (u *tagUsecase) GetTags(ctx context.Context, p domain.Pagination) ([]domain.Tag, error) {
+func (u *tagUsecase) GetTags(ctx context.Context, p domain.Pagination) ([]domain.Tag, int64, error) {
 	return u.repo.FindAll(ctx, p)
 }
 

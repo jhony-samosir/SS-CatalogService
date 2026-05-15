@@ -6,14 +6,38 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ss-catalog-service/internal/domain"
+	"ss-catalog-service/pkg/response"
 )
 
 type InventoryHandler struct {
 	cmdUsecase domain.InventoryCommandUsecase
+	queryUsecase domain.InventoryQueryUsecase
 }
 
-func NewInventoryHandler(cmdUsecase domain.InventoryCommandUsecase) *InventoryHandler {
-	return &InventoryHandler{cmdUsecase: cmdUsecase}
+func NewInventoryHandler(cmdUsecase domain.InventoryCommandUsecase, queryUsecase domain.InventoryQueryUsecase) *InventoryHandler {
+	return &InventoryHandler{
+		cmdUsecase: cmdUsecase,
+		queryUsecase: queryUsecase,
+	}
+}
+
+func (h *InventoryHandler) GetInventory(c *gin.Context) {
+	var p domain.Pagination
+	if err := c.ShouldBindQuery(&p); err != nil {
+		p.SetDefaults()
+	}
+	p.SetDefaults()
+
+	warehouseID := c.Query("warehouse_id")
+	variantID := c.Query("variant_id")
+
+	items, total, err := h.queryUsecase.GetInventory(c.Request.Context(), p, warehouseID, variantID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to fetch inventory", err.Error())
+		return
+	}
+
+	response.PaginatedJSON(c, http.StatusOK, "Inventory fetched successfully", items, total, p.Page, p.Limit)
 }
 
 func (h *InventoryHandler) AdjustStock(c *gin.Context) {

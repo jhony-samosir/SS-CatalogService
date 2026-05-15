@@ -172,25 +172,31 @@ func NewTagRepository(db *gorm.DB) domain.TagRepository {
 	return &tagRepository{db: db}
 }
 
-func (r *tagRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.Tag, error) {
+func (r *tagRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.Tag, int64, error) {
 	var models []TagModel
+	var total int64
 	db := getDB(ctx, r.db)
 	query := db.Model(&TagModel{})
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	if p.Limit > 0 {
 		query = query.Limit(p.Limit).Offset(p.Offset)
 	}
 	if err := query.Find(&models).Error; err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	tags := make([]domain.Tag, len(models))
 	for i, m := range models {
 		tags[i] = domain.Tag{
 			BaseEntity: domain.BaseEntity{ID: m.ID, PublicID: m.PublicID},
-			Name: m.Name,
-			Slug: m.Slug,
+			Name:       m.Name,
+			Slug:       m.Slug,
 		}
 	}
-	return tags, nil
+	return tags, total, nil
 }
 
 func (r *tagRepository) Create(ctx context.Context, tag *domain.Tag) error {

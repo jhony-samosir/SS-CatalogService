@@ -48,11 +48,15 @@ type Warehouse struct {
 // ProductInventory represents real-time stock levels.
 type ProductInventory struct {
 	BaseEntity
-	VariantID        int
-	WarehouseID      int
-	QuantityOnHand   int
-	QuantityReserved int
-	LowStockAlert    int
+	VariantID        int    `json:"variant_id"`
+	ProductName      string `json:"product_name"`
+	VariantName      string `json:"variant_name"`
+	SKU              string `json:"sku"`
+	WarehouseID      int    `json:"warehouse_id"`
+	WarehouseName    string `json:"warehouse_name"`
+	QuantityOnHand   int    `json:"quantity_on_hand"`
+	QuantityReserved int    `json:"quantity_reserved"`
+	LowStockAlert    int    `json:"low_stock_alert"`
 }
 
 // MovementType defines the type of stock change.
@@ -107,6 +111,7 @@ type UpdateStockPayload struct {
 // --- Interfaces ---
 
 type InventoryRepository interface {
+	FindAll(ctx context.Context, p Pagination, warehouseID string, variantID string) ([]ProductInventory, int64, error)
 	GetInventoryForUpdate(ctx context.Context, variantID int, warehouseID int) (*ProductInventory, error)
 	CreateInventory(ctx context.Context, inv *ProductInventory) error
 	UpdateInventory(ctx context.Context, inv *ProductInventory) error
@@ -125,6 +130,10 @@ type WarehouseRepository interface {
 
 type InventoryCommandUsecase interface {
 	UpdateInventoryStock(ctx context.Context, payload UpdateStockPayload) error
+}
+
+type InventoryQueryUsecase interface {
+	GetInventory(ctx context.Context, p Pagination, warehouseID string, variantID string) ([]ProductInventory, int64, error)
 }
 
 // WarehouseUsecase defines the business logic for warehouses.

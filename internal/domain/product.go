@@ -25,7 +25,7 @@ type ProductCommandUsecase interface {
 
 // ProductQueryUsecase defines the contract for read operations on products.
 type ProductQueryUsecase interface {
-	GetAllProducts(ctx context.Context, p Pagination) ([]Product, error)
+	GetAllProducts(ctx context.Context, p Pagination) ([]Product, int64, error)
 	GetProductByPublicID(ctx context.Context, publicID uuid.UUID) (*Product, error)
 	GetProductDetails(ctx context.Context, query GetProductDetailsQuery) (*ProductDetailsResponse, error)
 	SearchProducts(ctx context.Context, q GetProductSearchQuery) (*ProductSearchResult, error)

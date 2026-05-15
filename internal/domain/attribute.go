@@ -66,7 +66,7 @@ type AttributeRepository interface {
 
 // TagRepository defines the contract for tag data access.
 type TagRepository interface {
-	FindAll(ctx context.Context, p Pagination) ([]Tag, error)
+	FindAll(ctx context.Context, p Pagination) ([]Tag, int64, error)
 	Create(ctx context.Context, tag *Tag) error
 	Delete(ctx context.Context, publicID uuid.UUID) error
 }
@@ -82,7 +82,7 @@ type AttributeUsecase interface {
 
 // TagUsecase defines the business logic for tags.
 type TagUsecase interface {
-	GetTags(ctx context.Context, p Pagination) ([]Tag, error)
+	GetTags(ctx context.Context, p Pagination) ([]Tag, int64, error)
 	CreateTag(ctx context.Context, tag *Tag) error
 	DeleteTag(ctx context.Context, publicID uuid.UUID) error
 }
