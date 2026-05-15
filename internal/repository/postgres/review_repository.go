@@ -84,7 +84,11 @@ func (r *reviewRepository) AddVote(ctx context.Context, vote *domain.ReviewVote)
 
 func (r *reviewRepository) UpdateStatus(ctx context.Context, reviewID int, status domain.ReviewStatus) error {
 	db := getDB(ctx, r.db)
-	return db.Model(&ProductReviewModel{}).Where("id = ?", reviewID).Update("status", string(status)).Error
+	user, _ := domain.UserFromContext(ctx)
+	return db.Model(&ProductReviewModel{}).Where("id = ?", reviewID).Updates(map[string]interface{}{
+		"status":     string(status),
+		"updated_by": user.FullName,
+	}).Error
 }
 
 func (r *reviewRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.ProductReview, int64, error) {

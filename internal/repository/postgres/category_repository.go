@@ -137,6 +137,7 @@ func (r *categoryRepository) Create(ctx context.Context, category *domain.Catego
 
 func (r *categoryRepository) Update(ctx context.Context, category *domain.Category) error {
 	db := getDB(ctx, r.db)
+	user, _ := domain.UserFromContext(ctx)
 	return db.Model(&CategoryModel{}).
 		Where("public_id = ?", category.PublicID).
 		Updates(map[string]interface{}{
@@ -148,12 +149,17 @@ func (r *categoryRepository) Update(ctx context.Context, category *domain.Catego
 			"level":       category.Level,
 			"sort_order":  category.SortOrder,
 			"is_active":   category.IsActive,
+			"updated_by":  user.FullName,
 		}).Error
 }
 
 func (r *categoryRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
-	return db.Where("public_id = ?", publicID).Delete(&CategoryModel{}).Error
+	var m CategoryModel
+	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		return err
+	}
+	return db.Delete(&m).Error
 }
 
 func (r *categoryRepository) CountChildren(ctx context.Context, parentID int) (int64, error) {
@@ -168,10 +174,9 @@ func (r *categoryRepository) CountChildren(ctx context.Context, parentID int) (i
 func (r *categoryRepository) CountProducts(ctx context.Context, categoryID int) (int64, error) {
 	var count int64
 	db := getDB(ctx, r.db)
-	// Product <-> Category is usually many-to-many or a simple link.
-	// Assuming a simple ProductCategory model exists or similar.
-	// For now, checking direct product table if it has category_id.
-	if err := db.Model(&ProductModel{}).Where("category_id = ?", categoryID).Count(&count).Error; err != nil {
+	
+	// Product <-> Category is many-to-many via product_categories table
+	if err := db.Table("product_categories").Where("category_id = ? AND deleted_at IS NULL", categoryID).Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil

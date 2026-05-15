@@ -30,14 +30,22 @@ func NewProductHandler(cu domain.ProductCommandUsecase, qu domain.ProductQueryUs
 // --- Request / Response DTOs ---
 
 type CreateProductRequest struct {
-	Name    string `json:"name" binding:"required,min=3,max=500"`
-	BrandID *int   `json:"brand_id,omitempty"`
+	Name        string   `json:"name" binding:"required,min=3,max=500"`
+	Slug        string   `json:"slug"`
+	Price       float64  `json:"price"`
+	ImageURL    string   `json:"image_url"`
+	Description string   `json:"description"`
+	BrandID     *string  `json:"brand_id,omitempty"`
+	Status      string   `json:"status"`
+	CategoryIDs []string `json:"category_ids"`
 }
 
 type UpdateProductRequest struct {
 	Name        string               `json:"name" binding:"required,min=3,max=500"`
 	Description string               `json:"description"`
 	Status      domain.ProductStatus `json:"status" binding:"required"`
+	BrandID     *string              `json:"brand_id,omitempty"`
+	CategoryIDs []string             `json:"category_ids"`
 }
 
 type ProductResponse struct {
@@ -72,13 +80,35 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 		return
 	}
 
-	product, err := h.commandUsecase.CreateProduct(c.Request.Context(), domain.CreateProductPayload{
-		Name:    req.Name,
-		BrandID: req.BrandID,
-	})
+	payload := domain.CreateProductPayload{
+		Name:        req.Name,
+		Slug:        req.Slug,
+		Price:       req.Price,
+		ImageURL:    req.ImageURL,
+		Description: req.Description,
+		Status:      domain.ProductStatus(req.Status),
+	}
+
+	if req.BrandID != nil && *req.BrandID != "" {
+		bid, err := uuid.Parse(*req.BrandID)
+		if err == nil {
+			payload.PublicBrandID = &bid
+		}
+	}
+
+	if len(req.CategoryIDs) > 0 {
+		payload.CategoryPublicIDs = make([]uuid.UUID, 0, len(req.CategoryIDs))
+		for _, idStr := range req.CategoryIDs {
+			if id, err := uuid.Parse(idStr); err == nil {
+				payload.CategoryPublicIDs = append(payload.CategoryPublicIDs, id)
+			}
+		}
+	}
+
+	product, err := h.commandUsecase.CreateProduct(c.Request.Context(), payload)
 	if err != nil {
 		log.Printf("ERROR [CreateProduct]: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create product"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create product: " + err.Error()})
 		return
 	}
 
@@ -99,12 +129,30 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	err = h.commandUsecase.UpdateProduct(c.Request.Context(), domain.UpdateProductPayload{
+	payload := domain.UpdateProductPayload{
 		PublicID:    publicID,
 		Name:        req.Name,
 		Description: req.Description,
 		Status:      req.Status,
-	})
+	}
+
+	if req.BrandID != nil && *req.BrandID != "" {
+		bid, err := uuid.Parse(*req.BrandID)
+		if err == nil {
+			payload.PublicBrandID = &bid
+		}
+	}
+
+	if len(req.CategoryIDs) > 0 {
+		payload.CategoryPublicIDs = make([]uuid.UUID, 0, len(req.CategoryIDs))
+		for _, idStr := range req.CategoryIDs {
+			if id, err := uuid.Parse(idStr); err == nil {
+				payload.CategoryPublicIDs = append(payload.CategoryPublicIDs, id)
+			}
+		}
+	}
+
+	err = h.commandUsecase.UpdateProduct(c.Request.Context(), payload)
 
 	if err != nil {
 		if errors.Is(err, domain.ErrProductNotFound) {

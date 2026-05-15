@@ -16,24 +16,30 @@ import (
 )
 
 type productCommandUsecase struct {
-	repo       domain.ProductRepository
-	cacheRepo  domain.ProductCacheRepository
-	outboxRepo domain.OutboxRepository
-	txManager  domain.TransactionManager
+	repo         domain.ProductRepository
+	brandRepo    domain.BrandRepository
+	categoryRepo domain.CategoryRepository
+	cacheRepo    domain.ProductCacheRepository
+	outboxRepo   domain.OutboxRepository
+	txManager    domain.TransactionManager
 }
 
 // NewProductCommandUsecase creates a new instance of product command business logic.
 func NewProductCommandUsecase(
 	repo domain.ProductRepository,
+	brandRepo domain.BrandRepository,
+	categoryRepo domain.CategoryRepository,
 	cacheRepo domain.ProductCacheRepository,
 	outboxRepo domain.OutboxRepository,
 	txManager domain.TransactionManager,
 ) domain.ProductCommandUsecase {
 	return &productCommandUsecase{
-		repo:       repo,
-		cacheRepo:  cacheRepo,
-		outboxRepo: outboxRepo,
-		txManager:  txManager,
+		repo:         repo,
+		brandRepo:    brandRepo,
+		categoryRepo: categoryRepo,
+		cacheRepo:    cacheRepo,
+		outboxRepo:   outboxRepo,
+		txManager:    txManager,
 	}
 }
 
@@ -49,6 +55,26 @@ func (u *productCommandUsecase) CreateProduct(ctx context.Context, payload domai
 		return nil, domain.ErrInvalidProductName
 	}
 
+	// 1. Resolve Brand ID
+	var brandID *int
+	if payload.PublicBrandID != nil {
+		brand, err := u.brandRepo.FindByPublicID(ctx, *payload.PublicBrandID)
+		if err == nil && brand != nil {
+			brandID = &brand.ID
+		}
+	}
+
+	// 2. Resolve Categories
+	var categories []domain.Category
+	if len(payload.CategoryPublicIDs) > 0 {
+		for _, catPublicID := range payload.CategoryPublicIDs {
+			cat, err := u.categoryRepo.FindByPublicID(ctx, catPublicID)
+			if err == nil && cat != nil {
+				categories = append(categories, *cat)
+			}
+		}
+	}
+
 	var product *domain.Product
 
 	err := u.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
@@ -56,14 +82,21 @@ func (u *productCommandUsecase) CreateProduct(ctx context.Context, payload domai
 			BaseEntity: domain.BaseEntity{
 				PublicID: uuid.New(),
 			},
-			BrandID:  payload.BrandID,
-			SellerID: userCtx.SellerID, // Bind SellerID from context
-			Name:     payload.Name,
-			Slug:     generateSlug(payload.Name),
-			Status:   domain.ProductStatusDraft,
+			BrandID:     brandID,
+			SellerID:    userCtx.SellerID,
+			Name:        payload.Name,
+			Slug:        payload.Slug,
+			Description: payload.Description,
+			Status:      payload.Status,
+			ImageURL:    payload.ImageURL,
+			Categories:  categories,
 		}
 
-		// 1. Save Product
+		if product.Slug == "" {
+			product.Slug = generateSlug(payload.Name)
+		}
+
+		// 3. Save Product
 		if err := u.repo.Create(txCtx, product); err != nil {
 			return fmt.Errorf("failed to save product: %w", err)
 		}
@@ -106,8 +139,28 @@ func (u *productCommandUsecase) UpdateProduct(ctx context.Context, payload domai
 		return domain.ErrUnauthorized
 	}
 
+	// 1. Resolve Brand ID
+	var brandID *int
+	if payload.PublicBrandID != nil {
+		brand, err := u.brandRepo.FindByPublicID(ctx, *payload.PublicBrandID)
+		if err == nil && brand != nil {
+			brandID = &brand.ID
+		}
+	}
+
+	// 2. Resolve Categories
+	var categories []domain.Category
+	if len(payload.CategoryPublicIDs) > 0 {
+		for _, catPublicID := range payload.CategoryPublicIDs {
+			cat, err := u.categoryRepo.FindByPublicID(ctx, catPublicID)
+			if err == nil && cat != nil {
+				categories = append(categories, *cat)
+			}
+		}
+	}
+
 	err := u.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		// 2. Fetch the existing product to verify ownership
+		// 3. Fetch the existing product to verify ownership
 		product, err := u.repo.FindByPublicID(txCtx, payload.PublicID)
 		if err != nil {
 			return err
@@ -116,10 +169,10 @@ func (u *productCommandUsecase) UpdateProduct(ctx context.Context, payload domai
 			return domain.ErrProductNotFound
 		}
 
-		// 3. Strict Authorization Check (IDOR Prevention + RBAC Bypass)
+		// 4. Strict Authorization Check (IDOR Prevention + RBAC Bypass)
 		isAdmin := false
 		for _, role := range userCtx.Roles {
-			if role == "admin" {
+			if role == "admin" || role == "Admin" {
 				isAdmin = true
 				break
 			}
@@ -131,12 +184,14 @@ func (u *productCommandUsecase) UpdateProduct(ctx context.Context, payload domai
 			return domain.ErrUnauthorized
 		}
 
-		// 4. Update fields
+		// 5. Update fields
 		product.Name = payload.Name
 		product.Description = payload.Description
 		product.Status = payload.Status
+		product.BrandID = brandID
+		product.Categories = categories
 
-		// 5. Save changes
+		// 6. Save changes
 		if err := u.repo.Update(txCtx, product); err != nil {
 			return fmt.Errorf("failed to update product: %w", err)
 		}

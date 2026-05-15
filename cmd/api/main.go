@@ -54,6 +54,19 @@ func main() {
 	outboxRepo := pgmodel.NewOutboxRepository(db)
 
 	productRepo := pgmodel.NewProductRepository(db)
+	categoryRepo := pgmodel.NewCategoryRepository(db)
+	brandRepo := pgmodel.NewBrandRepository(db)
+	attrRepo := pgmodel.NewAttributeRepository(db)
+	tagRepo := pgmodel.NewTagRepository(db)
+	whRepo := pgmodel.NewWarehouseRepository(db)
+	variantRepo := pgmodel.NewVariantRepository(db)
+	inventoryRepo := pgmodel.NewInventoryRepository(db)
+	reviewRepo := pgmodel.NewReviewRepository(db)
+	bundleRepo := pgmodel.NewBundleRepository(db)
+	priceRepo := pgmodel.NewPriceHistoryRepository(db)
+	importRepo := pgmodel.NewImportRepository(db)
+	digitalRepo := pgmodel.NewDigitalRepository(db)
+	sellerRepo := pgmodel.NewSellerRepository(db)
 	
 	// Define active languages for cache invalidation (Opsi A)
 	activeLangs := []string{"id-ID", "en-US"}
@@ -77,32 +90,10 @@ func main() {
 		}
 	}
 
-	productCmd := productusecase.NewProductCommandUsecase(productRepo, productCacheRepo, outboxRepo, txManager)
+	productCmd := productusecase.NewProductCommandUsecase(productRepo, brandRepo, categoryRepo, productCacheRepo, outboxRepo, txManager)
 	productQry := productusecase.NewProductQueryUsecase(productRepo, searchRepo, productCacheRepo, cfg.App.DefaultLang)
 
-	variantRepo := pgmodel.NewVariantRepository(db)
-	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)
-
-	inventoryRepo := pgmodel.NewInventoryRepository(db)
-	inventoryCmd := inventoryusecase.NewInventoryCommandUsecase(inventoryRepo, txManager)
-	inventoryQry := inventoryusecase.NewInventoryQueryUsecase(inventoryRepo)
-
-	reviewRepo := pgmodel.NewReviewRepository(db)
-	reviewUsecase := reviewusecase.NewReviewUsecase(reviewRepo)
-
-	bundleRepo := pgmodel.NewBundleRepository(db)
-	bundleUsecase := bundleusecase.NewBundleUsecase(bundleRepo)
-
-	priceRepo := pgmodel.NewPriceHistoryRepository(db)
-
-	importRepo := pgmodel.NewImportRepository(db)
 	importUsecase := importusecase.NewImportUsecase(importRepo)
-
-	categoryRepo := pgmodel.NewCategoryRepository(db)
-	brandRepo := pgmodel.NewBrandRepository(db)
-	attrRepo := pgmodel.NewAttributeRepository(db)
-	tagRepo := pgmodel.NewTagRepository(db)
-	whRepo := pgmodel.NewWarehouseRepository(db)
 
 	// Master Data Cache
 	masterCache, err := cache.NewMasterDataCacheRepository(1 * time.Hour)
@@ -116,10 +107,14 @@ func main() {
 	tagUsecase := attrusecase.NewTagUsecase(tagRepo)
 	whUsecase := inventoryusecase.NewWarehouseUsecase(whRepo)
 
-	digitalRepo := pgmodel.NewDigitalRepository(db)
+	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)
+	inventoryCmd := inventoryusecase.NewInventoryCommandUsecase(inventoryRepo, txManager)
+	inventoryQry := inventoryusecase.NewInventoryQueryUsecase(inventoryRepo)
+	reviewUsecase := reviewusecase.NewReviewUsecase(reviewRepo)
+	bundleUsecase := bundleusecase.NewBundleUsecase(bundleRepo)
 	digitalUsecase := digitalusecase.NewDigitalUsecase(digitalRepo)
 
-	sellerRepo := pgmodel.NewSellerRepository(db)
+
 
 	// --- Background Workers ---
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

@@ -84,6 +84,10 @@ func (u *tagUsecase) CreateTag(ctx context.Context, tag *domain.Tag) error {
 	return u.repo.Create(ctx, tag)
 }
 
+func (u *tagUsecase) UpdateTag(ctx context.Context, tag *domain.Tag) error {
+	return u.repo.Update(ctx, tag)
+}
+
 func (u *tagUsecase) DeleteTag(ctx context.Context, publicID uuid.UUID) error {
 	return u.repo.Delete(ctx, publicID)
 }

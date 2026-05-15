@@ -98,6 +98,7 @@ func (r *warehouseRepository) Create(ctx context.Context, wh *domain.Warehouse) 
 
 func (r *warehouseRepository) Update(ctx context.Context, wh *domain.Warehouse) error {
 	db := getDB(ctx, r.db)
+	user, _ := domain.UserFromContext(ctx)
 	return db.Model(&WarehouseModel{}).
 		Where("public_id = ?", wh.PublicID).
 		Updates(map[string]interface{}{
@@ -110,12 +111,17 @@ func (r *warehouseRepository) Update(ctx context.Context, wh *domain.Warehouse) 
 			"postal_code":  wh.PostalCode,
 			"address":      wh.Address,
 			"is_active":    wh.IsActive,
+			"updated_by":   user.FullName,
 		}).Error
 }
 
 func (r *warehouseRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
-	return db.Where("public_id = ?", publicID).Delete(&WarehouseModel{}).Error
+	var m WarehouseModel
+	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		return err
+	}
+	return db.Delete(&m).Error
 }
 
 func (r *warehouseRepository) CountInventory(ctx context.Context, warehouseID int) (int64, error) {

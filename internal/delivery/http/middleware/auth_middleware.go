@@ -22,13 +22,21 @@ func AuthMiddleware(cfg config.JWTConfig, sellerRepo domain.SellerRepository) gi
 	}
 
 	return func(c *gin.Context) {
+		tokenString := ""
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+		} else {
+			// Fallback to cookie if header is missing (Enterprise Portal Pattern)
+			if cookie, err := c.Cookie("accessToken"); err == nil {
+				tokenString = cookie
+			}
+		}
+
+		if tokenString == "" {
 			c.Next()
 			return
 		}
-
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			// Validate the algorithm
@@ -59,6 +67,11 @@ func AuthMiddleware(cfg config.JWTConfig, sellerRepo domain.SellerRepository) gi
 			userCtx.UserID = sub
 		}
 
+		// 1.5 Extract FullName
+		if name, ok := claims["full_name"].(string); ok {
+			userCtx.FullName = name
+		}
+
 		// 2. Resolve SellerID (from claim or database)
 		if sid, ok := claims["seller_id"].(float64); ok {
 			id := int(sid)
@@ -79,6 +92,9 @@ func AuthMiddleware(cfg config.JWTConfig, sellerRepo domain.SellerRepository) gi
 			for i, r := range roles {
 				userCtx.Roles[i] = fmt.Sprint(r)
 			}
+		} else if roleName, ok := claims["role_name"].(string); ok {
+			// Single role fallback
+			userCtx.Roles = []string{roleName}
 		}
 
 		// Set context

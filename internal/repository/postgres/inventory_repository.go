@@ -101,7 +101,7 @@ func (r *inventoryRepository) UpdateInventory(ctx context.Context, inv *domain.P
 	db := getDB(ctx, r.db)
 
 	// Best Practice: Partial update to prevent overwriting audit fields like CreatedAt
-	return db.Model(model).Select("QuantityOnHand", "QuantityReserved", "UpdatedAt").Updates(model).Error
+	return db.Model(model).Select("QuantityOnHand", "QuantityReserved", "UpdatedAt", "UpdatedBy").Updates(model).Error
 }
 
 func (r *inventoryRepository) CreateMovement(ctx context.Context, movement *domain.InventoryMovement) error {

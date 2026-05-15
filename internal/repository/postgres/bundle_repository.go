@@ -98,5 +98,9 @@ func (r *bundleRepository) Update(ctx context.Context, bundle *domain.ProductBun
 
 func (r *bundleRepository) Delete(ctx context.Context, id int) error {
 	db := getDB(ctx, r.db)
-	return db.Delete(&ProductBundleModel{}, id).Error
+	var m ProductBundleModel
+	if err := db.First(&m, id).Error; err != nil {
+		return err
+	}
+	return db.Delete(&m).Error
 }

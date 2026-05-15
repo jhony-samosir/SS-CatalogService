@@ -83,14 +83,22 @@ type ProductDetailsResponse struct {
 
 // CreateProductPayload represents the data needed to create a new product.
 type CreateProductPayload struct {
-	Name    string
-	BrandID *int
+	Name            string
+	Slug            string
+	Description     string
+	Status          ProductStatus
+	ImageURL        string
+	Price           float64 // Initial price for default variant if applicable
+	PublicBrandID   *uuid.UUID
+	CategoryPublicIDs []uuid.UUID
 }
 
 // UpdateProductPayload represents the data needed to update an existing product.
 type UpdateProductPayload struct {
-	PublicID    uuid.UUID
-	Name        string
-	Description string
-	Status      ProductStatus
+	PublicID          uuid.UUID
+	Name              string
+	Description       string
+	Status            ProductStatus
+	PublicBrandID     *uuid.UUID
+	CategoryPublicIDs []uuid.UUID
 }

@@ -165,19 +165,29 @@ func (r *productRepository) Update(ctx context.Context, p *domain.Product) error
 	model := FromProductDomain(p)
 	db := getDB(ctx, r.db)
 
-	// Partial Update: Only update fields that are explicitly provided or changed.
-	// Using map with Updates() is the best practice to avoid overwriting all columns.
-	updates := map[string]interface{}{
-		"name":        model.Name,
-		"description": model.Description,
-		"status":      model.Status,
-		"updated_at":  time.Now(),
-	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		// 1. Update basic fields
+		userCtx, _ := domain.UserFromContext(ctx)
+		updates := map[string]interface{}{
+			"name":        model.Name,
+			"description": model.Description,
+			"status":      model.Status,
+			"brand_id":    model.BrandID,
+			"updated_at":  time.Now(),
+			"updated_by":  userCtx.FullName,
+		}
 
-	if err := db.Model(&ProductModel{}).Where("id = ?", model.ID).Updates(updates).Error; err != nil {
-		return mapDBError(err)
-	}
-	return nil
+		if err := tx.Model(&ProductModel{}).Where("id = ?", model.ID).Updates(updates).Error; err != nil {
+			return mapDBError(err)
+		}
+
+		// 2. Update Categories (Full Replace)
+		if err := tx.Model(model).Association("Categories").Replace(model.Categories); err != nil {
+			return mapDBError(err)
+		}
+
+		return nil
+	})
 }
 
 func (r *productRepository) Search(ctx context.Context, q domain.GetProductSearchQuery) (*domain.ProductSearchResult, error) {

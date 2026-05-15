@@ -3,6 +3,8 @@ package postgres
 import (
 	"ss-catalog-service/internal/domain"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type PriceHistoryModel struct {
@@ -13,6 +15,14 @@ type PriceHistoryModel struct {
 	Currency  string    `gorm:"type:varchar(3);default:'IDR'"`
 	Reason    string    `gorm:"type:varchar(255)"`
 	CreatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP"`
+	CreatedBy string    `gorm:"type:varchar(255)"`
+}
+
+func (m *PriceHistoryModel) BeforeCreate(tx *gorm.DB) error {
+	if user, ok := domain.UserFromContext(tx.Statement.Context); ok {
+		m.CreatedBy = user.FullName
+	}
+	return nil
 }
 
 func (PriceHistoryModel) TableName() string {

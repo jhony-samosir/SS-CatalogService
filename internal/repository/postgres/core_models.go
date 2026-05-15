@@ -11,7 +11,7 @@ import (
 
 // BaseModel contains common fields for GORM models.
 type BaseModel struct {
-	ID        int            `gorm:"primaryKey;autoIncrement"`
+	ID        int            `gorm:"primaryKey;autoIncrement;default:(-)"`
 	PublicID  uuid.UUID      `gorm:"type:uuid;uniqueIndex;not null;default:gen_random_uuid()"`
 	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	CreatedBy string         `gorm:"type:varchar(255)"`
@@ -19,6 +19,28 @@ type BaseModel struct {
 	UpdatedBy string         `gorm:"type:varchar(255)"`
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 	DeletedBy string         `gorm:"type:varchar(255)"`
+}
+
+func (m *BaseModel) BeforeCreate(tx *gorm.DB) error {
+	if user, ok := domain.UserFromContext(tx.Statement.Context); ok {
+		m.CreatedBy = user.FullName
+		m.UpdatedBy = user.FullName
+	}
+	return nil
+}
+
+func (m *BaseModel) BeforeUpdate(tx *gorm.DB) error {
+	if user, ok := domain.UserFromContext(tx.Statement.Context); ok {
+		m.UpdatedBy = user.FullName
+	}
+	return nil
+}
+
+func (m *BaseModel) BeforeDelete(tx *gorm.DB) error {
+	if user, ok := domain.UserFromContext(tx.Statement.Context); ok {
+		tx.Statement.SetColumn("deleted_by", user.FullName)
+	}
+	return nil
 }
 
 // BrandModel represents the database schema for brands.
@@ -64,7 +86,7 @@ type ProductModel struct {
 	IsFeatured   bool          `gorm:"not null;default:false"`
 	WeightGram   *int          `gorm:"null"`
 	ImageURL     string        `gorm:"-"` // Non-persisted, for domain mapping
-	SearchVector string        `gorm:"type:tsvector"`
+	SearchVector *string       `gorm:"type:tsvector"`
 
 	// Associations
 	Translations []ProductTranslationModel `gorm:"foreignKey:ProductID"`
@@ -212,7 +234,7 @@ func (m *ProductModel) ToDomain() domain.Product {
 }
 
 func FromProductDomain(p *domain.Product) *ProductModel {
-	return &ProductModel{
+	m := &ProductModel{
 		BaseModel: BaseModel{
 			ID:        p.ID,
 			PublicID:  p.PublicID,
@@ -235,4 +257,28 @@ func FromProductDomain(p *domain.Product) *ProductModel {
 		WeightGram:  p.WeightGram,
 		ImageURL:    p.ImageURL,
 	}
+
+	if len(p.Categories) > 0 {
+		m.Categories = make([]CategoryModel, len(p.Categories))
+		for i, c := range p.Categories {
+			m.Categories[i] = CategoryModel{
+				BaseModel: BaseModel{ID: c.ID, PublicID: c.PublicID},
+				Name:      c.Name,
+				Slug:      c.Slug,
+			}
+		}
+	}
+
+	if len(p.Tags) > 0 {
+		m.Tags = make([]TagModel, len(p.Tags))
+		for i, t := range p.Tags {
+			m.Tags[i] = TagModel{
+				BaseModel: BaseModel{ID: t.ID, PublicID: t.PublicID},
+				Name:      t.Name,
+				Slug:      t.Slug,
+			}
+		}
+	}
+
+	return m
 }

@@ -101,6 +101,7 @@ func (r *brandRepository) Create(ctx context.Context, brand *domain.Brand) error
 
 func (r *brandRepository) Update(ctx context.Context, brand *domain.Brand) error {
 	db := getDB(ctx, r.db)
+	user, _ := domain.UserFromContext(ctx)
 	return db.Model(&BrandModel{}).
 		Where("public_id = ?", brand.PublicID).
 		Updates(map[string]interface{}{
@@ -110,12 +111,17 @@ func (r *brandRepository) Update(ctx context.Context, brand *domain.Brand) error
 			"website_url": brand.WebsiteURL,
 			"description": brand.Description,
 			"is_active":   brand.IsActive,
+			"updated_by":  user.FullName,
 		}).Error
 }
 
 func (r *brandRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
-	return db.Where("public_id = ?", publicID).Delete(&BrandModel{}).Error
+	var m BrandModel
+	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		return err
+	}
+	return db.Delete(&m).Error
 }
 
 func (r *brandRepository) CountProducts(ctx context.Context, brandID int) (int64, error) {

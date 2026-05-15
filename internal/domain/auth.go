@@ -11,6 +11,7 @@ const userContextKey contextKey = "user_context"
 // UserContext holds information about the authenticated user.
 type UserContext struct {
 	UserID   string
+	FullName string
 	SellerID *int
 	Roles    []string
 }

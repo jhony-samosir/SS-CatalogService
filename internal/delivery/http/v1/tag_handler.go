@@ -48,6 +48,29 @@ func (h *TagHandler) CreateTag(c *gin.Context) {
 	response.JSON(c, http.StatusCreated, "Tag created successfully", tag)
 }
 
+func (h *TagHandler) UpdateTag(c *gin.Context) {
+	idStr := c.Param("id")
+	publicID, err := uuid.Parse(idStr)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "Invalid tag ID", nil)
+		return
+	}
+
+	var tag domain.Tag
+	if err := c.ShouldBindJSON(&tag); err != nil {
+		response.ValidationError(c, err)
+		return
+	}
+
+	tag.PublicID = publicID
+	if err := h.usecase.UpdateTag(c.Request.Context(), &tag); err != nil {
+		response.Error(c, http.StatusInternalServerError, "Failed to update tag", err.Error())
+		return
+	}
+
+	response.JSON(c, http.StatusOK, "Tag updated successfully", tag)
+}
+
 func (h *TagHandler) DeleteTag(c *gin.Context) {
 	idStr := c.Param("id")
 	publicID, err := uuid.Parse(idStr)

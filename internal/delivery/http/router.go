@@ -108,7 +108,9 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 		attributes := api.Group("/attributes")
 		{
 			attributes.GET("", attributeHandler.GetAttributes)
+			attributes.GET("/:id", attributeHandler.GetAttribute)
 			attributes.POST("", middleware.RequireAuth(), attributeHandler.CreateAttribute)
+			attributes.PUT("/:id", middleware.RequireAuth(), attributeHandler.UpdateAttribute)
 			attributes.DELETE("/:id", middleware.RequireAuth(), attributeHandler.DeleteAttribute)
 		}
 
@@ -116,6 +118,7 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 		{
 			tags.GET("", tagHandler.GetTags)
 			tags.POST("", middleware.RequireAuth(), tagHandler.CreateTag)
+			tags.PUT("/:id", middleware.RequireAuth(), tagHandler.UpdateTag)
 			tags.DELETE("/:id", middleware.RequireAuth(), tagHandler.DeleteTag)
 		}
 

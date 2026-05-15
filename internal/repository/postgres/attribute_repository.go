@@ -111,6 +111,7 @@ func (r *attributeRepository) Create(ctx context.Context, attr *domain.ProductAt
 
 func (r *attributeRepository) Update(ctx context.Context, attr *domain.ProductAttribute) error {
 	db := getDB(ctx, r.db)
+	user, _ := domain.UserFromContext(ctx)
 	return db.Model(&ProductAttributeModel{}).
 		Where("public_id = ?", attr.PublicID).
 		Updates(map[string]interface{}{
@@ -119,12 +120,17 @@ func (r *attributeRepository) Update(ctx context.Context, attr *domain.ProductAt
 			"input_type": string(attr.InputType),
 			"is_variant": attr.IsVariant,
 			"sort_order": attr.SortOrder,
+			"updated_by": user.FullName,
 		}).Error
 }
 
 func (r *attributeRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
-	return db.Where("public_id = ?", publicID).Delete(&ProductAttributeModel{}).Error
+	var m ProductAttributeModel
+	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		return err
+	}
+	return db.Delete(&m).Error
 }
 
 func (r *attributeRepository) CountUsage(ctx context.Context, attrID int) (int64, error) {
@@ -199,6 +205,22 @@ func (r *tagRepository) FindAll(ctx context.Context, p domain.Pagination) ([]dom
 	return tags, total, nil
 }
 
+func (r *tagRepository) FindByPublicID(ctx context.Context, publicID uuid.UUID) (*domain.Tag, error) {
+	var m TagModel
+	db := getDB(ctx, r.db)
+	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &domain.Tag{
+		BaseEntity: domain.BaseEntity{ID: m.ID, PublicID: m.PublicID},
+		Name:       m.Name,
+		Slug:       m.Slug,
+	}, nil
+}
+
 func (r *tagRepository) Create(ctx context.Context, tag *domain.Tag) error {
 	model := &TagModel{
 		BaseModel: BaseModel{PublicID: tag.PublicID},
@@ -209,7 +231,23 @@ func (r *tagRepository) Create(ctx context.Context, tag *domain.Tag) error {
 	return db.Create(model).Error
 }
 
+func (r *tagRepository) Update(ctx context.Context, tag *domain.Tag) error {
+	db := getDB(ctx, r.db)
+	user, _ := domain.UserFromContext(ctx)
+	return db.Model(&TagModel{}).
+		Where("public_id = ?", tag.PublicID).
+		Updates(map[string]interface{}{
+			"name":       tag.Name,
+			"slug":       tag.Slug,
+			"updated_by": user.FullName,
+		}).Error
+}
+
 func (r *tagRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
-	return db.Where("public_id = ?", publicID).Delete(&TagModel{}).Error
+	var m TagModel
+	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		return err
+	}
+	return db.Delete(&m).Error
 }
