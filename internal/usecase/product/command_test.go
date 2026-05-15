@@ -22,7 +22,7 @@ func TestCreateProductCommand(t *testing.T) {
 	testCases := []struct {
 		name          string
 		payload       domain.CreateProductPayload
-		setupMocks    func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager)
+		setupMocks    func(repo *mocks.MockProductRepository, brandRepo *mocks.MockBrandRepository, catRepo *mocks.MockCategoryRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager)
 		expectedError error
 	}{
 		{
@@ -30,7 +30,7 @@ func TestCreateProductCommand(t *testing.T) {
 			payload: domain.CreateProductPayload{
 				Name: "New Product",
 			},
-			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+			setupMocks: func(repo *mocks.MockProductRepository, brandRepo *mocks.MockBrandRepository, catRepo *mocks.MockCategoryRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
 				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
 					Return(func(ctx context.Context, fn func(context.Context) error) error {
 						return fn(ctx)
@@ -50,7 +50,7 @@ func TestCreateProductCommand(t *testing.T) {
 			payload: domain.CreateProductPayload{
 				Name: "",
 			},
-			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {},
+			setupMocks: func(repo *mocks.MockProductRepository, brandRepo *mocks.MockBrandRepository, catRepo *mocks.MockCategoryRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {},
 			expectedError: domain.ErrInvalidProductName,
 		},
 		{
@@ -58,7 +58,7 @@ func TestCreateProductCommand(t *testing.T) {
 			payload: domain.CreateProductPayload{
 				Name: "New Product",
 			},
-			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+			setupMocks: func(repo *mocks.MockProductRepository, brandRepo *mocks.MockBrandRepository, catRepo *mocks.MockCategoryRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
 				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
 					Return(func(ctx context.Context, fn func(context.Context) error) error {
 						return fn(ctx)
@@ -73,11 +73,13 @@ func TestCreateProductCommand(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockRepo := new(mocks.MockProductRepository)
+			mockBrand := new(mocks.MockBrandRepository)
+			mockCat := new(mocks.MockCategoryRepository)
 			mockOutbox := new(mocks.MockOutboxRepository)
 			mockTx := new(mocks.MockTransactionManager)
 
-			tc.setupMocks(mockRepo, mockOutbox, mockTx)
-			usecase := product.NewProductCommandUsecase(mockRepo, nil, mockOutbox, mockTx)
+			tc.setupMocks(mockRepo, mockBrand, mockCat, mockOutbox, mockTx)
+			usecase := product.NewProductCommandUsecase(mockRepo, mockBrand, mockCat, nil, mockOutbox, mockTx)
 
 			_, err := usecase.CreateProduct(ctx, tc.payload)
 
@@ -107,7 +109,7 @@ func TestUpdateProductAuthorization(t *testing.T) {
 	testCases := []struct {
 		name          string
 		userCtx       domain.UserContext
-		setupMocks    func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager)
+		setupMocks    func(repo *mocks.MockProductRepository, brandRepo *mocks.MockBrandRepository, catRepo *mocks.MockCategoryRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager)
 		expectedError error
 	}{
 		{
@@ -115,7 +117,7 @@ func TestUpdateProductAuthorization(t *testing.T) {
 			userCtx: domain.UserContext{
 				SellerID: &sellerID,
 			},
-			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+			setupMocks: func(repo *mocks.MockProductRepository, brandRepo *mocks.MockBrandRepository, catRepo *mocks.MockCategoryRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
 				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
 					Return(func(ctx context.Context, fn func(context.Context) error) error {
 						return fn(ctx)
@@ -140,7 +142,7 @@ func TestUpdateProductAuthorization(t *testing.T) {
 			userCtx: domain.UserContext{
 				Roles: []string{"admin"},
 			},
-			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+			setupMocks: func(repo *mocks.MockProductRepository, brandRepo *mocks.MockBrandRepository, catRepo *mocks.MockCategoryRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
 				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
 					Return(func(ctx context.Context, fn func(context.Context) error) error {
 						return fn(ctx)
@@ -161,7 +163,7 @@ func TestUpdateProductAuthorization(t *testing.T) {
 			userCtx: domain.UserContext{
 				SellerID: &otherSellerID,
 			},
-			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
+			setupMocks: func(repo *mocks.MockProductRepository, brandRepo *mocks.MockBrandRepository, catRepo *mocks.MockCategoryRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {
 				tx.On("WithTransaction", mock.Anything, mock.AnythingOfType("func(context.Context) error")).
 					Return(func(ctx context.Context, fn func(context.Context) error) error {
 						return fn(ctx)
@@ -177,7 +179,7 @@ func TestUpdateProductAuthorization(t *testing.T) {
 		{
 			name: "Error: No User in Context",
 			userCtx: domain.UserContext{}, 
-			setupMocks: func(repo *mocks.MockProductRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {},
+			setupMocks: func(repo *mocks.MockProductRepository, brandRepo *mocks.MockBrandRepository, catRepo *mocks.MockCategoryRepository, outbox *mocks.MockOutboxRepository, tx *mocks.MockTransactionManager) {},
 			expectedError: domain.ErrUnauthorized,
 		},
 	}
@@ -185,11 +187,13 @@ func TestUpdateProductAuthorization(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockRepo := new(mocks.MockProductRepository)
+			mockBrand := new(mocks.MockBrandRepository)
+			mockCat := new(mocks.MockCategoryRepository)
 			mockOutbox := new(mocks.MockOutboxRepository)
 			mockTx := new(mocks.MockTransactionManager)
 
-			tc.setupMocks(mockRepo, mockOutbox, mockTx)
-			usecase := product.NewProductCommandUsecase(mockRepo, nil, mockOutbox, mockTx)
+			tc.setupMocks(mockRepo, mockBrand, mockCat, mockOutbox, mockTx)
+			usecase := product.NewProductCommandUsecase(mockRepo, mockBrand, mockCat, nil, mockOutbox, mockTx)
 
 			var ctx context.Context
 			if tc.name == "Error: No User in Context" {

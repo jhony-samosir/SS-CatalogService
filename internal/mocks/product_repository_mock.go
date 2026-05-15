@@ -13,9 +13,9 @@ type MockProductRepository struct {
 	mock.Mock
 }
 
-func (m *MockProductRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.Product, error) {
+func (m *MockProductRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.Product, int64, error) {
 	args := m.Called(ctx, p)
-	return args.Get(0).([]domain.Product), args.Error(1)
+	return args.Get(0).([]domain.Product), int64(args.Int(1)), args.Error(2)
 }
 
 func (m *MockProductRepository) FindByID(ctx context.Context, id int) (*domain.Product, error) {
