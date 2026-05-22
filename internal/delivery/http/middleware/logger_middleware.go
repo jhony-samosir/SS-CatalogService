@@ -23,17 +23,13 @@ func RequestLoggerMiddleware(logger *slog.Logger) gin.HandlerFunc {
 			path = c.Request.URL.Path
 		}
 
-		// Extract correlation ID (it should have been set by CorrelationIDMiddleware)
-		correlationID, _ := c.Get("correlation_id")
-
 		// Log request completion. Use InfoContext to propagate correlation ID from standard context.
 		logger.InfoContext(c.Request.Context(), "http_request",
-			"method",         c.Request.Method,
-			"path",           path,
-			"status",         c.Writer.Status(),
-			"duration_ms",    duration.Milliseconds(),
-			"correlation_id", correlationID,
-			"service",        "ss-catalog-service",
+			"method",      c.Request.Method,
+			"path",        path,
+			"status",      c.Writer.Status(),
+			"duration_ms", duration.Milliseconds(),
+			"service",     "ss-catalog-service",
 		)
 	}
 }

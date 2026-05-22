@@ -82,7 +82,13 @@ func (r *reviewRepository) AddVote(ctx context.Context, vote *domain.ReviewVote)
 	}
 	db := getDB(ctx, r.db)
 
-	return db.Save(model).Error
+	if err := db.Save(model).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "add_review_vote", "review_id", vote.ReviewID, "user_id", vote.UserID, "error", err)
+		return err
+	}
+
+	slog.InfoContext(ctx, "db_audit", "operation", "add_review_vote", "review_id", vote.ReviewID, "user_id", vote.UserID, "is_helpful", vote.IsHelpful)
+	return nil
 }
 
 func (r *reviewRepository) UpdateStatus(ctx context.Context, reviewID int, status domain.ReviewStatus) error {

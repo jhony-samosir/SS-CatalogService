@@ -158,6 +158,7 @@ func main() {
 			Seller:       sellerRepo,
 		},
 		JWT: cfg.JWT,
+		Logger: loggerInstance,
 	})
 
 	// --- Start Server ---

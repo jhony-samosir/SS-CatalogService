@@ -37,6 +37,7 @@ type RouterConfig struct {
 	Usecases     AppUsecases
 	Repositories AppRepositories
 	JWT          config.JWTConfig
+	Logger       *slog.Logger
 }
 
 // SetupRouter wires the HTTP routes using already-constructed usecases.
@@ -60,7 +61,12 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 
 	// Global Middlewares
 	r.Use(middleware.CorrelationIDMiddleware())
-	r.Use(middleware.RequestLoggerMiddleware(slog.Default()))
+	
+	loggerInstance := cfg.Logger
+	if loggerInstance == nil {
+		loggerInstance = slog.Default()
+	}
+	r.Use(middleware.RequestLoggerMiddleware(loggerInstance))
 
 	// Health Check for Gateway
 	r.GET("/health", func(c *gin.Context) {

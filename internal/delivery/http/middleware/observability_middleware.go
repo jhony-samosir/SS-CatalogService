@@ -6,6 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"ss-catalog-service/pkg/logger"
 )
 
 // CorrelationIDMiddleware ensures every request has a unique X-Correlation-Id.
@@ -37,7 +39,7 @@ func CorrelationIDMiddleware() gin.HandlerFunc {
 		c.Header("X-Correlation-Id", correlationID)
 
 		// Propagate to standard Go context for context-based logging
-		ctx := context.WithValue(c.Request.Context(), "correlation_id", correlationID)
+		ctx := context.WithValue(c.Request.Context(), logger.CorrelationIDKey, correlationID)
 		c.Request = c.Request.WithContext(ctx)
 		
 		c.Next()
