@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -34,6 +35,10 @@ func CorrelationIDMiddleware() gin.HandlerFunc {
 		// Set in context and header
 		c.Set("correlation_id", correlationID)
 		c.Header("X-Correlation-Id", correlationID)
+
+		// Propagate to standard Go context for context-based logging
+		ctx := context.WithValue(c.Request.Context(), "correlation_id", correlationID)
+		c.Request = c.Request.WithContext(ctx)
 		
 		c.Next()
 	}

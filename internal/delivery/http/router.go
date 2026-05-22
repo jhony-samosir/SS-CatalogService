@@ -1,6 +1,8 @@
 package http
 
 import (
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
 	v1 "ss-catalog-service/internal/delivery/http/v1"
 	"ss-catalog-service/internal/domain"
@@ -58,6 +60,7 @@ func SetupRouter(r *gin.Engine, cfg RouterConfig) {
 
 	// Global Middlewares
 	r.Use(middleware.CorrelationIDMiddleware())
+	r.Use(middleware.RequestLoggerMiddleware(slog.Default()))
 
 	// Health Check for Gateway
 	r.GET("/health", func(c *gin.Context) {

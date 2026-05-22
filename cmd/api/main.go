@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -29,21 +29,28 @@ import (
 	digitalusecase "ss-catalog-service/internal/usecase/digital"
 	msrepo "ss-catalog-service/internal/repository/meilisearch"
 	"ss-catalog-service/internal/worker"
+	"ss-catalog-service/pkg/logger"
 )
 
 func main() {
+	// --- Setup Structured JSON Logging ---
+	loggerInstance := logger.SetupLogger()
+	slog.Info("SS-CatalogService starting", "service", "ss-catalog-service")
+
 	// --- Load Centralized Config ---
 	cfg := config.Load()
 
 	// --- Infrastructure: Database ---
 	db, err := database.NewPostgresDB(cfg.Database)
 	if err != nil {
-		log.Fatalf("Database initialization failed: %v", err)
+		slog.Error("Database initialization failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Run SQL Migrations (Source of Truth)
 	if err := database.RunMigrations(db, "db/migrations"); err != nil {
-		log.Fatalf("Database migration failed: %v", err)
+		slog.Error("Database migration failed", "error", err)
+		os.Exit(1)
 	}
 
 	// --- Infrastructure: Messaging ---
@@ -73,7 +80,8 @@ func main() {
 	
 	baseCacheRepo, err := cache.NewProductCacheRepository(10*time.Minute, activeLangs)
 	if err != nil {
-		log.Fatalf("Cache initialization failed: %v", err)
+		slog.Error("Cache initialization failed", "error", err)
+		os.Exit(1)
 	}
 	
 	// Wrap with Prometheus metrics decorator
@@ -86,19 +94,20 @@ func main() {
 		var err error
 		searchRepo, err = msrepo.NewProductSearchRepository(meiliURL, meiliKey)
 		if err != nil {
-			log.Printf("Failed to connect to Meilisearch: %v", err)
+			slog.Error("Failed to connect to Meilisearch", "error", err)
 		}
 	}
 
 	productCmd := productusecase.NewProductCommandUsecase(productRepo, brandRepo, categoryRepo, productCacheRepo, outboxRepo, txManager)
 	productQry := productusecase.NewProductQueryUsecase(productRepo, searchRepo, productCacheRepo, cfg.App.DefaultLang)
 
-	importUsecase := importusecase.NewImportUsecase(importRepo)
+	importUsecase := importusecase.NewImportUsecase(importRepo, loggerInstance)
 
 	// Master Data Cache
 	masterCache, err := cache.NewMasterDataCacheRepository(1 * time.Hour)
 	if err != nil {
-		log.Fatalf("Master cache initialization failed: %v", err)
+		slog.Error("Master cache initialization failed", "error", err)
+		os.Exit(1)
 	}
 
 	categoryUsecase := categoryusecase.NewCategoryUsecase(categoryRepo, masterCache)
@@ -108,7 +117,7 @@ func main() {
 	whUsecase := inventoryusecase.NewWarehouseUsecase(whRepo)
 
 	variantCmd := variantusecase.NewVariantCommandUsecase(variantRepo, productRepo, txManager)
-	inventoryCmd := inventoryusecase.NewInventoryCommandUsecase(inventoryRepo, txManager)
+	inventoryCmd := inventoryusecase.NewInventoryCommandUsecase(inventoryRepo, txManager, loggerInstance)
 	inventoryQry := inventoryusecase.NewInventoryQueryUsecase(inventoryRepo)
 	reviewUsecase := reviewusecase.NewReviewUsecase(reviewRepo)
 	bundleUsecase := bundleusecase.NewBundleUsecase(bundleRepo)
@@ -124,7 +133,9 @@ func main() {
 	go outboxWorker.Start(ctx)
 
 	// --- HTTP Router ---
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
+
 	apphttp.SetupRouter(r, apphttp.RouterConfig{
 		Usecases: apphttp.AppUsecases{
 			ProductCommand:   productCmd,
@@ -152,8 +163,9 @@ func main() {
 	// --- Start Server ---
 	port := cfg.App.Port
 
-	log.Printf("🚀 Server running on port %s", port)
+	slog.Info("Server running", "port", port)
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		slog.Error("Failed to start server", "error", err)
+		os.Exit(1)
 	}
 }

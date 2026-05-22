@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"ss-catalog-service/internal/domain"
 	"strconv"
 	"strings"
@@ -153,11 +154,13 @@ func (r *productRepository) Create(ctx context.Context, p *domain.Product) error
 	db := getDB(ctx, r.db)
 
 	if err := db.Create(model).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_product", "error", err)
 		return mapDBError(err)
 	}
 	// Update domain entity with generated values (like auto-increment ID)
 	p.ID = model.ID
 	p.CreatedAt = model.CreatedAt
+	slog.InfoContext(ctx, "db_audit", "operation", "create_product", "product_id", p.ID, "public_id", p.PublicID)
 	return nil
 }
 
@@ -165,7 +168,7 @@ func (r *productRepository) Update(ctx context.Context, p *domain.Product) error
 	model := FromProductDomain(p)
 	db := getDB(ctx, r.db)
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		// 1. Update basic fields
 		userCtx, _ := domain.UserFromContext(ctx)
 		updates := map[string]interface{}{
@@ -188,6 +191,14 @@ func (r *productRepository) Update(ctx context.Context, p *domain.Product) error
 
 		return nil
 	})
+
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "update_product", "product_id", p.ID, "public_id", p.PublicID, "error", err)
+		return err
+	}
+
+	slog.InfoContext(ctx, "db_audit", "operation", "update_product", "product_id", p.ID, "public_id", p.PublicID)
+	return nil
 }
 
 func (r *productRepository) Search(ctx context.Context, q domain.GetProductSearchQuery) (*domain.ProductSearchResult, error) {

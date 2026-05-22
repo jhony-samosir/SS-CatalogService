@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"log/slog"
 	"ss-catalog-service/internal/domain"
 
 	"github.com/google/uuid"
@@ -91,18 +92,20 @@ func (r *brandRepository) Create(ctx context.Context, brand *domain.Brand) error
 
 	db := getDB(ctx, r.db)
 	if err := db.Create(model).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_brand", "error", err)
 		return err
 	}
 
 	brand.ID = model.ID
 	brand.CreatedAt = model.CreatedAt
+	slog.InfoContext(ctx, "db_audit", "operation", "create_brand", "brand_id", brand.ID, "slug", brand.Slug)
 	return nil
 }
 
 func (r *brandRepository) Update(ctx context.Context, brand *domain.Brand) error {
 	db := getDB(ctx, r.db)
 	user, _ := domain.UserFromContext(ctx)
-	return db.Model(&BrandModel{}).
+	err := db.Model(&BrandModel{}).
 		Where("public_id = ?", brand.PublicID).
 		Updates(map[string]interface{}{
 			"name":        brand.Name,
@@ -113,15 +116,28 @@ func (r *brandRepository) Update(ctx context.Context, brand *domain.Brand) error
 			"is_active":   brand.IsActive,
 			"updated_by":  user.FullName,
 		}).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "update_brand", "public_id", brand.PublicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "update_brand", "public_id", brand.PublicID, "slug", brand.Slug)
+	return nil
 }
 
 func (r *brandRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
 	var m BrandModel
 	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_brand_find", "public_id", publicID, "error", err)
 		return err
 	}
-	return db.Delete(&m).Error
+	err := db.Delete(&m).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_brand_execute", "public_id", publicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "delete_brand", "public_id", publicID, "brand_id", m.ID)
+	return nil
 }
 
 func (r *brandRepository) CountProducts(ctx context.Context, brandID int) (int64, error) {

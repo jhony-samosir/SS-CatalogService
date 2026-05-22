@@ -2,17 +2,22 @@ package import_job
 
 import (
 	"context"
+	"log/slog"
 	"ss-catalog-service/internal/domain"
 
 	"github.com/google/uuid"
 )
 
 type importUsecase struct {
-	repo domain.ImportRepository
+	repo   domain.ImportRepository
+	logger *slog.Logger
 }
 
-func NewImportUsecase(repo domain.ImportRepository) domain.ImportUsecase {
-	return &importUsecase{repo: repo}
+func NewImportUsecase(repo domain.ImportRepository, logger *slog.Logger) domain.ImportUsecase {
+	return &importUsecase{
+		repo:   repo,
+		logger: logger,
+	}
 }
 
 func (u *importUsecase) TriggerImport(ctx context.Context, fileURL string, jobType string, userID string) (*domain.ImportJob, error) {
@@ -22,9 +27,15 @@ func (u *importUsecase) TriggerImport(ctx context.Context, fileURL string, jobTy
 		Status:    domain.JobStatusPending,
 		CreatedBy: userID,
 	}
+
+	u.logger.InfoContext(ctx, "triggering import job", "file_url", fileURL, "job_type", jobType, "user_id", userID)
+
 	if err := u.repo.Create(ctx, job); err != nil {
+		u.logger.ErrorContext(ctx, "failed to create import job", "error", err, "file_url", fileURL, "job_type", jobType)
 		return nil, err
 	}
+
+	u.logger.InfoContext(ctx, "import job triggered successfully", "job_id", job.PublicID, "file_url", fileURL, "job_type", jobType)
 	return job, nil
 }
 

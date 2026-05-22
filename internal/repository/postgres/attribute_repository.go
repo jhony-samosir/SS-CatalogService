@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"log/slog"
 	"ss-catalog-service/internal/domain"
 
 	"github.com/google/uuid"
@@ -106,13 +107,21 @@ func (r *attributeRepository) Create(ctx context.Context, attr *domain.ProductAt
 		SortOrder: attr.SortOrder,
 	}
 	db := getDB(ctx, r.db)
-	return db.Create(model).Error
+	err := db.Create(model).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_attribute", "error", err)
+		return err
+	}
+	attr.ID = model.ID
+	attr.CreatedAt = model.CreatedAt
+	slog.InfoContext(ctx, "db_audit", "operation", "create_attribute", "attribute_id", attr.ID, "code", attr.Code)
+	return nil
 }
 
 func (r *attributeRepository) Update(ctx context.Context, attr *domain.ProductAttribute) error {
 	db := getDB(ctx, r.db)
 	user, _ := domain.UserFromContext(ctx)
-	return db.Model(&ProductAttributeModel{}).
+	err := db.Model(&ProductAttributeModel{}).
 		Where("public_id = ?", attr.PublicID).
 		Updates(map[string]interface{}{
 			"name":       attr.Name,
@@ -122,15 +131,28 @@ func (r *attributeRepository) Update(ctx context.Context, attr *domain.ProductAt
 			"sort_order": attr.SortOrder,
 			"updated_by": user.FullName,
 		}).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "update_attribute", "public_id", attr.PublicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "update_attribute", "public_id", attr.PublicID, "code", attr.Code)
+	return nil
 }
 
 func (r *attributeRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
 	var m ProductAttributeModel
 	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_attribute_find", "public_id", publicID, "error", err)
 		return err
 	}
-	return db.Delete(&m).Error
+	err := db.Delete(&m).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_attribute_execute", "public_id", publicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "delete_attribute", "public_id", publicID, "attribute_id", m.ID)
+	return nil
 }
 
 func (r *attributeRepository) CountUsage(ctx context.Context, attrID int) (int64, error) {
@@ -160,12 +182,26 @@ func (r *attributeRepository) CreateValue(ctx context.Context, val *domain.Attri
 		SortOrder:   val.SortOrder,
 	}
 	db := getDB(ctx, r.db)
-	return db.Create(model).Error
+	err := db.Create(model).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_attribute_value", "attribute_id", val.AttributeID, "error", err)
+		return err
+	}
+	val.ID = model.ID
+	val.CreatedAt = model.CreatedAt
+	slog.InfoContext(ctx, "db_audit", "operation", "create_attribute_value", "value_id", val.ID, "attribute_id", val.AttributeID, "value", val.Value)
+	return nil
 }
 
 func (r *attributeRepository) DeleteValue(ctx context.Context, valID int) error {
 	db := getDB(ctx, r.db)
-	return db.Delete(&AttributeValueModel{}, valID).Error
+	err := db.Delete(&AttributeValueModel{}, valID).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_attribute_value", "value_id", valID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "delete_attribute_value", "value_id", valID)
+	return nil
 }
 
 // Tag Repository Implementation
@@ -228,26 +264,46 @@ func (r *tagRepository) Create(ctx context.Context, tag *domain.Tag) error {
 		Slug:      tag.Slug,
 	}
 	db := getDB(ctx, r.db)
-	return db.Create(model).Error
+	err := db.Create(model).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_tag", "error", err)
+		return err
+	}
+	tag.ID = model.ID
+	slog.InfoContext(ctx, "db_audit", "operation", "create_tag", "tag_id", tag.ID, "slug", tag.Slug)
+	return nil
 }
 
 func (r *tagRepository) Update(ctx context.Context, tag *domain.Tag) error {
 	db := getDB(ctx, r.db)
 	user, _ := domain.UserFromContext(ctx)
-	return db.Model(&TagModel{}).
+	err := db.Model(&TagModel{}).
 		Where("public_id = ?", tag.PublicID).
 		Updates(map[string]interface{}{
 			"name":       tag.Name,
 			"slug":       tag.Slug,
 			"updated_by": user.FullName,
 		}).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "update_tag", "public_id", tag.PublicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "update_tag", "public_id", tag.PublicID, "slug", tag.Slug)
+	return nil
 }
 
 func (r *tagRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
 	var m TagModel
 	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_tag_find", "public_id", publicID, "error", err)
 		return err
 	}
-	return db.Delete(&m).Error
+	err := db.Delete(&m).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_tag_execute", "public_id", publicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "delete_tag", "public_id", publicID, "tag_id", m.ID)
+	return nil
 }

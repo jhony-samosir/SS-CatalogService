@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"ss-catalog-service/internal/domain"
 
 	"gorm.io/gorm"
@@ -88,11 +89,13 @@ func (r *inventoryRepository) CreateInventory(ctx context.Context, inv *domain.P
 	db := getDB(ctx, r.db)
 
 	if err := db.Create(model).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_inventory", "error", err)
 		return err
 	}
 	inv.ID = model.ID
 	inv.CreatedAt = model.CreatedAt
 	inv.PublicID = model.PublicID
+	slog.InfoContext(ctx, "db_audit", "operation", "create_inventory", "inventory_id", inv.ID, "variant_id", inv.VariantID, "warehouse_id", inv.WarehouseID)
 	return nil
 }
 
@@ -101,7 +104,13 @@ func (r *inventoryRepository) UpdateInventory(ctx context.Context, inv *domain.P
 	db := getDB(ctx, r.db)
 
 	// Best Practice: Partial update to prevent overwriting audit fields like CreatedAt
-	return db.Model(model).Select("QuantityOnHand", "QuantityReserved", "UpdatedAt", "UpdatedBy").Updates(model).Error
+	err := db.Model(model).Select("QuantityOnHand", "QuantityReserved", "UpdatedAt", "UpdatedBy").Updates(model).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "update_inventory", "inventory_id", inv.ID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "update_inventory", "inventory_id", inv.ID, "qty_on_hand", inv.QuantityOnHand, "qty_reserved", inv.QuantityReserved)
+	return nil
 }
 
 func (r *inventoryRepository) CreateMovement(ctx context.Context, movement *domain.InventoryMovement) error {
@@ -109,8 +118,10 @@ func (r *inventoryRepository) CreateMovement(ctx context.Context, movement *doma
 	db := getDB(ctx, r.db)
 
 	if err := db.Create(model).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_movement", "error", err)
 		return err
 	}
 	movement.ID = model.ID
+	slog.InfoContext(ctx, "db_audit", "operation", "create_movement", "movement_id", movement.ID, "inventory_id", movement.InventoryID, "quantity", movement.Quantity, "movement_type", movement.MovementType)
 	return nil
 }

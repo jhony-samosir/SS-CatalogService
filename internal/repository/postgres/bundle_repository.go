@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"log/slog"
 	"ss-catalog-service/internal/domain"
 
 	"github.com/google/uuid"
@@ -21,11 +22,13 @@ func (r *bundleRepository) Create(ctx context.Context, bundle *domain.ProductBun
 	db := getDB(ctx, r.db)
 
 	if err := db.Create(model).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_bundle", "error", err)
 		return mapDBError(err)
 	}
 
 	bundle.ID = model.ID
 	bundle.CreatedAt = model.CreatedAt
+	slog.InfoContext(ctx, "db_audit", "operation", "create_bundle", "bundle_id", bundle.ID, "public_id", bundle.PublicID)
 	return nil
 }
 
@@ -71,7 +74,7 @@ func (r *bundleRepository) Update(ctx context.Context, bundle *domain.ProductBun
 	model := FromBundleDomain(bundle)
 	db := getDB(ctx, r.db)
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		// Update base bundle
 		if err := tx.Model(&ProductBundleModel{}).Where("id = ?", model.ID).Updates(model).Error; err != nil {
 			return err
@@ -94,13 +97,26 @@ func (r *bundleRepository) Update(ctx context.Context, bundle *domain.ProductBun
 
 		return nil
 	})
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "update_bundle", "bundle_id", bundle.ID, "public_id", bundle.PublicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "update_bundle", "bundle_id", bundle.ID, "public_id", bundle.PublicID)
+	return nil
 }
 
 func (r *bundleRepository) Delete(ctx context.Context, id int) error {
 	db := getDB(ctx, r.db)
 	var m ProductBundleModel
 	if err := db.First(&m, id).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_bundle_find", "bundle_id", id, "error", err)
 		return err
 	}
-	return db.Delete(&m).Error
+	err := db.Delete(&m).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_bundle_execute", "bundle_id", id, "public_id", m.PublicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "delete_bundle", "bundle_id", id, "public_id", m.PublicID)
+	return nil
 }

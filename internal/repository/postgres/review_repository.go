@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"log/slog"
 	"ss-catalog-service/internal/domain"
 
 	"gorm.io/gorm"
@@ -20,11 +21,13 @@ func (r *reviewRepository) Create(ctx context.Context, review *domain.ProductRev
 	db := getDB(ctx, r.db)
 
 	if err := db.Create(model).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_review", "error", err)
 		return mapDBError(err)
 	}
 
 	review.ID = model.ID
 	review.CreatedAt = model.CreatedAt
+	slog.InfoContext(ctx, "db_audit", "operation", "create_review", "review_id", review.ID, "product_id", review.ProductID, "rating", review.Rating)
 	return nil
 }
 
@@ -85,10 +88,16 @@ func (r *reviewRepository) AddVote(ctx context.Context, vote *domain.ReviewVote)
 func (r *reviewRepository) UpdateStatus(ctx context.Context, reviewID int, status domain.ReviewStatus) error {
 	db := getDB(ctx, r.db)
 	user, _ := domain.UserFromContext(ctx)
-	return db.Model(&ProductReviewModel{}).Where("id = ?", reviewID).Updates(map[string]interface{}{
+	err := db.Model(&ProductReviewModel{}).Where("id = ?", reviewID).Updates(map[string]interface{}{
 		"status":     string(status),
 		"updated_by": user.FullName,
 	}).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "update_review_status", "review_id", reviewID, "status", string(status), "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "update_review_status", "review_id", reviewID, "status", string(status))
+	return nil
 }
 
 func (r *reviewRepository) FindAll(ctx context.Context, p domain.Pagination) ([]domain.ProductReview, int64, error) {

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"log/slog"
 	"ss-catalog-service/internal/domain"
 
 	"github.com/google/uuid"
@@ -127,18 +128,20 @@ func (r *categoryRepository) Create(ctx context.Context, category *domain.Catego
 
 	db := getDB(ctx, r.db)
 	if err := db.Create(model).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_category", "error", err)
 		return err
 	}
 
 	category.ID = model.ID
 	category.CreatedAt = model.CreatedAt
+	slog.InfoContext(ctx, "db_audit", "operation", "create_category", "category_id", category.ID, "slug", category.Slug)
 	return nil
 }
 
 func (r *categoryRepository) Update(ctx context.Context, category *domain.Category) error {
 	db := getDB(ctx, r.db)
 	user, _ := domain.UserFromContext(ctx)
-	return db.Model(&CategoryModel{}).
+	err := db.Model(&CategoryModel{}).
 		Where("public_id = ?", category.PublicID).
 		Updates(map[string]interface{}{
 			"parent_id":   category.ParentID,
@@ -151,15 +154,28 @@ func (r *categoryRepository) Update(ctx context.Context, category *domain.Catego
 			"is_active":   category.IsActive,
 			"updated_by":  user.FullName,
 		}).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "update_category", "public_id", category.PublicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "update_category", "public_id", category.PublicID, "slug", category.Slug)
+	return nil
 }
 
 func (r *categoryRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
 	var m CategoryModel
 	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_category_find", "public_id", publicID, "error", err)
 		return err
 	}
-	return db.Delete(&m).Error
+	err := db.Delete(&m).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_category_execute", "public_id", publicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "delete_category", "public_id", publicID, "category_id", m.ID)
+	return nil
 }
 
 func (r *categoryRepository) CountChildren(ctx context.Context, parentID int) (int64, error) {

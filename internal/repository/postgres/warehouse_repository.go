@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"log/slog"
 	"ss-catalog-service/internal/domain"
 
 	"github.com/google/uuid"
@@ -93,13 +94,21 @@ func (r *warehouseRepository) Create(ctx context.Context, wh *domain.Warehouse) 
 		IsActive:    wh.IsActive,
 	}
 	db := getDB(ctx, r.db)
-	return db.Create(model).Error
+	err := db.Create(model).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "create_warehouse", "error", err)
+		return err
+	}
+	wh.ID = model.ID
+	wh.CreatedAt = model.CreatedAt
+	slog.InfoContext(ctx, "db_audit", "operation", "create_warehouse", "warehouse_id", wh.ID, "code", wh.Code)
+	return nil
 }
 
 func (r *warehouseRepository) Update(ctx context.Context, wh *domain.Warehouse) error {
 	db := getDB(ctx, r.db)
 	user, _ := domain.UserFromContext(ctx)
-	return db.Model(&WarehouseModel{}).
+	err := db.Model(&WarehouseModel{}).
 		Where("public_id = ?", wh.PublicID).
 		Updates(map[string]interface{}{
 			"seller_id":    wh.SellerID,
@@ -113,15 +122,28 @@ func (r *warehouseRepository) Update(ctx context.Context, wh *domain.Warehouse) 
 			"is_active":    wh.IsActive,
 			"updated_by":   user.FullName,
 		}).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "update_warehouse", "public_id", wh.PublicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "update_warehouse", "public_id", wh.PublicID, "code", wh.Code)
+	return nil
 }
 
 func (r *warehouseRepository) Delete(ctx context.Context, publicID uuid.UUID) error {
 	db := getDB(ctx, r.db)
 	var m WarehouseModel
 	if err := db.Where("public_id = ?", publicID).First(&m).Error; err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_warehouse_find", "public_id", publicID, "error", err)
 		return err
 	}
-	return db.Delete(&m).Error
+	err := db.Delete(&m).Error
+	if err != nil {
+		slog.ErrorContext(ctx, "db_error", "operation", "delete_warehouse_execute", "public_id", publicID, "error", err)
+		return err
+	}
+	slog.InfoContext(ctx, "db_audit", "operation", "delete_warehouse", "public_id", publicID, "warehouse_id", m.ID)
+	return nil
 }
 
 func (r *warehouseRepository) CountInventory(ctx context.Context, warehouseID int) (int64, error) {
