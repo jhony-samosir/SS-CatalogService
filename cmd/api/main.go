@@ -54,7 +54,11 @@ func main() {
 	}
 
 	// --- Infrastructure: Messaging ---
-	logBroker := messaging.NewLogBroker()
+	rabbitBroker, err := messaging.NewRabbitMQBroker(cfg.RabbitMQ.URL)
+	if err != nil {
+		slog.Error("Failed to initialize RabbitMQ broker", "error", err)
+		os.Exit(1)
+	}
 
 	// --- Dependency Injection (Composition Root) ---
 	txManager := pgmodel.NewTransactionManager(db)
@@ -129,8 +133,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	outboxWorker := worker.NewOutboxWorker(outboxRepo, logBroker, 5*time.Second)
+	outboxWorker := worker.NewOutboxWorker(outboxRepo, rabbitBroker, 5*time.Second)
 	go outboxWorker.Start(ctx)
+
+	inboxConsumer := messaging.NewInboxConsumer(cfg.RabbitMQ.URL, db)
+	go inboxConsumer.Start(ctx)
 
 	// --- HTTP Router ---
 	r := gin.New()

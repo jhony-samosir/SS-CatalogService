@@ -24,10 +24,15 @@ type JWTConfig struct {
 	PublicKeyPath  string
 }
 
+type RabbitMQConfig struct {
+	URL string
+}
+
 type Config struct {
 	App      AppConfig
 	Database DatabaseConfig
 	JWT      JWTConfig
+	RabbitMQ RabbitMQConfig
 }
 
 // Load reads configuration from .env and environment variables.
@@ -53,6 +58,9 @@ func Load() *Config {
 	cfg.JWT.Issuer = getEnv("JWT_ISSUER", "https://auth.internal.smallmarket.com")
 	cfg.JWT.Audience = getEnv("JWT_AUDIENCE", "smallmarket-api")
 	cfg.JWT.PublicKeyPath = getEnv("JWT_PUBLIC_KEY_PATH", "../../secrets/jwt_public_key.pem")
+
+	// RabbitMQ Config
+	cfg.RabbitMQ.URL = getEnv("RABBITMQ_URL", "amqp://guest:guest@host.docker.internal:5672/")
 
 	return cfg
 }
