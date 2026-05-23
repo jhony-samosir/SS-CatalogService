@@ -16,6 +16,7 @@ import (
 	"ss-catalog-service/internal/infrastructure/cache"
 	"ss-catalog-service/internal/infrastructure/database"
 	"ss-catalog-service/internal/infrastructure/messaging"
+	"ss-catalog-service/internal/infrastructure/otel"
 	pgmodel "ss-catalog-service/internal/repository/postgres"
 	inventoryusecase "ss-catalog-service/internal/usecase/inventory"
 	productusecase "ss-catalog-service/internal/usecase/product"
@@ -30,6 +31,8 @@ import (
 	msrepo "ss-catalog-service/internal/repository/meilisearch"
 	"ss-catalog-service/internal/worker"
 	"ss-catalog-service/pkg/logger"
+
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func main() {
@@ -39,6 +42,18 @@ func main() {
 
 	// --- Load Centralized Config ---
 	cfg := config.Load()
+
+	// --- OpenTelemetry Tracing ---
+	tp, err := otel.InitTracer("ss-catalog-service")
+	if err != nil {
+		slog.Error("Failed to initialize OTel tracer", "error", err)
+	} else {
+		defer func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				slog.Error("Error shutting down tracer provider", "error", err)
+			}
+		}()
+	}
 
 	// --- Infrastructure: Database ---
 	db, err := database.NewPostgresDB(cfg.Database)
@@ -142,6 +157,7 @@ func main() {
 	// --- HTTP Router ---
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(otelgin.Middleware("ss-catalog-service"))
 
 	apphttp.SetupRouter(r, apphttp.RouterConfig{
 		Usecases: apphttp.AppUsecases{
