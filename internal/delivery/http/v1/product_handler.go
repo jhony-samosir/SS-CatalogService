@@ -48,27 +48,183 @@ type UpdateProductRequest struct {
 	CategoryIDs []string             `json:"category_ids"`
 }
 
+type BrandDetail struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Slug        string    `json:"slug"`
+	LogoURL     string    `json:"logo_url,omitempty"`
+	WebsiteURL  string    `json:"website_url,omitempty"`
+	Description string    `json:"description,omitempty"`
+}
+
+type CategoryDetail struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Slug        string    `json:"slug"`
+	Description string    `json:"description,omitempty"`
+}
+
+type TagDetail struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Slug string    `json:"slug"`
+}
+
+type TranslationDetail struct {
+	LangCode    string `json:"lang_code"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	ShortDesc   string `json:"short_desc"`
+}
+
+type SEODetail struct {
+	LangCode        string `json:"lang_code"`
+	Slug            string `json:"slug"`
+	MetaTitle       string `json:"meta_title"`
+	MetaDescription string `json:"meta_description"`
+	CanonicalURL    string `json:"canonical_url,omitempty"`
+	OGImageURL      string `json:"og_image_url,omitempty"`
+}
+
+type VariantDetail struct {
+	ID        uuid.UUID `json:"id"`
+	SKU       string    `json:"sku"`
+	Barcode   string    `json:"barcode,omitempty"`
+	Name      string    `json:"name"`
+	IsDefault bool      `json:"is_default"`
+	Price     float64   `json:"price"`
+}
+
 type ProductResponse struct {
-	ID       uuid.UUID `json:"id"`
-	Name     string    `json:"name"`
-	Slug     string    `json:"slug"`
-	Status   string    `json:"status"`
-	Price    float64   `json:"price"`
-	ImageURL string    `json:"image_url"`
-	Rating   float64   `json:"rating"`
-	BrandID  *int      `json:"brand_id,omitempty"`
+	ID          uuid.UUID          `json:"id"`
+	Name        string             `json:"name"`
+	Slug        string             `json:"slug"`
+	Description string             `json:"description"`
+	ShortDesc   string             `json:"short_desc"`
+	Status      string             `json:"status"`
+	Price       float64            `json:"price"`
+	ImageURL    string             `json:"image_url"`
+	Rating      float64            `json:"rating"`
+	BrandID     *int               `json:"brand_id,omitempty"`
+	Brand       *BrandDetail       `json:"brand,omitempty"`
+	Categories  []CategoryDetail   `json:"categories"`
+	Tags        []TagDetail        `json:"tags"`
+	Translation *TranslationDetail `json:"translation,omitempty"`
+	SEO         *SEODetail         `json:"seo,omitempty"`
+	Variants    []VariantDetail    `json:"variants"`
 }
 
 func toProductResponse(p *domain.Product) ProductResponse {
+	// Dynamic Price Calculation
+	var rootPrice float64
+	var minPrice float64 = -1
+	var defaultVariantPrice float64 = -1
+
+	for _, v := range p.Variants {
+		if v.IsActive {
+			if v.IsDefault {
+				defaultVariantPrice = v.Price
+			}
+			if minPrice == -1 || v.Price < minPrice {
+				minPrice = v.Price
+			}
+		}
+	}
+
+	if defaultVariantPrice != -1 {
+		rootPrice = defaultVariantPrice
+	} else if minPrice != -1 {
+		rootPrice = minPrice
+	}
+
+	// Map Brand
+	var brand *BrandDetail
+	if p.Brand != nil {
+		brand = &BrandDetail{
+			ID:          p.Brand.PublicID,
+			Name:        p.Brand.Name,
+			Slug:        p.Brand.Slug,
+			LogoURL:     p.Brand.LogoURL,
+			WebsiteURL:  p.Brand.WebsiteURL,
+			Description: p.Brand.Description,
+		}
+	}
+
+	// Map Categories
+	categories := make([]CategoryDetail, len(p.Categories))
+	for i, c := range p.Categories {
+		categories[i] = CategoryDetail{
+			ID:          c.PublicID,
+			Name:        c.Name,
+			Slug:        c.Slug,
+			Description: c.Description,
+		}
+	}
+
+	// Map Tags
+	tags := make([]TagDetail, len(p.Tags))
+	for i, t := range p.Tags {
+		tags[i] = TagDetail{
+			ID:   t.PublicID,
+			Name: t.Name,
+			Slug: t.Slug,
+		}
+	}
+
+	// Map Translation
+	var translation *TranslationDetail
+	if p.Translation != nil {
+		translation = &TranslationDetail{
+			LangCode:    p.Translation.LangCode,
+			Name:        p.Translation.Name,
+			Description: p.Translation.Description,
+			ShortDesc:   p.Translation.ShortDesc,
+		}
+	}
+
+	// Map SEO
+	var seo *SEODetail
+	if p.SEO != nil {
+		seo = &SEODetail{
+			LangCode:        p.SEO.LangCode,
+			Slug:            p.SEO.Slug,
+			MetaTitle:       p.SEO.MetaTitle,
+			MetaDescription: p.SEO.MetaDescription,
+			CanonicalURL:    p.SEO.CanonicalURL,
+			OGImageURL:      p.SEO.OGImageURL,
+		}
+	}
+
+	// Map Variants
+	variants := make([]VariantDetail, len(p.Variants))
+	for i, v := range p.Variants {
+		variants[i] = VariantDetail{
+			ID:        v.PublicID,
+			SKU:       v.SKU,
+			Barcode:   v.Barcode,
+			Name:      v.Name,
+			IsDefault: v.IsDefault,
+			Price:     v.Price,
+		}
+	}
+
 	return ProductResponse{
-		ID:       p.PublicID,
-		Name:     p.Name,
-		Slug:     p.Slug,
-		Status:   string(p.Status),
-		Price:    0, // SPU level usually doesn't have price, variants do. Defaulting to 0.
-		ImageURL: p.ImageURL,
-		Rating:   0, // Defaulting to 0
-		BrandID:  p.BrandID,
+		ID:          p.PublicID,
+		Name:        p.Name,
+		Slug:        p.Slug,
+		Description: p.Description,
+		ShortDesc:   p.ShortDesc,
+		Status:      string(p.Status),
+		Price:       rootPrice,
+		ImageURL:    p.ImageURL,
+		Rating:      0, // Fallback rating
+		BrandID:     p.BrandID,
+		Brand:       brand,
+		Categories:  categories,
+		Tags:        tags,
+		Translation: translation,
+		SEO:         seo,
+		Variants:    variants,
 	}
 }
 
@@ -191,11 +347,11 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 	}
 
 	// Add Caching Headers
-	etag := fmt.Sprintf("\"%d\"", product.UpdatedAt.Unix())
 	c.Header("Cache-Control", "public, max-age=60")
 	c.Header("Vary", "Accept-Language, Authorization")
 	
 	if product.UpdatedAt != nil {
+		etag := fmt.Sprintf("\"%d\"", product.UpdatedAt.Unix())
 		c.Header("ETag", etag)
 		// 304 Not Modified support
 		if c.GetHeader("If-None-Match") == etag {

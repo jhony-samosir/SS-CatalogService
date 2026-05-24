@@ -16,6 +16,7 @@ type ProductVariant struct {
 	IsActive   bool
 	WeightGram *int
 	SortOrder  int
+	Price      float64
 }
 
 // Sentinel Errors

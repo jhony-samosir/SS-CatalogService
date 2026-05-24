@@ -15,6 +15,9 @@ type ProductVariantModel struct {
 	IsActive   bool   `gorm:"not null;default:true"`
 	WeightGram *int   `gorm:"null"`
 	SortOrder  int    `gorm:"not null;default:0"`
+
+	// Associations
+	Prices     []ProductPriceModel `gorm:"foreignKey:VariantID"`
 }
 
 func (ProductVariantModel) TableName() string { return "product_variants" }
@@ -60,6 +63,14 @@ func (ProductVideoModel) TableName() string { return "product_videos" }
 
 // Mapping functions can be added here as needed for each model.
 func (m *ProductVariantModel) ToDomain() domain.ProductVariant {
+	var price float64
+	for _, pr := range m.Prices {
+		if pr.IsActive {
+			price = pr.Amount
+			break
+		}
+	}
+
 	return domain.ProductVariant{
 		BaseEntity: domain.BaseEntity{
 			ID:        m.ID,
@@ -79,6 +90,7 @@ func (m *ProductVariantModel) ToDomain() domain.ProductVariant {
 		IsActive:   m.IsActive,
 		WeightGram: m.WeightGram,
 		SortOrder:  m.SortOrder,
+		Price:      price,
 	}
 }
 

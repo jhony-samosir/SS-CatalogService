@@ -51,6 +51,8 @@ type Product struct {
 	SEO         *ProductSEO
 	Categories  []Category
 	Tags        []Tag
+	Brand       *Brand
+	Variants    []ProductVariant
 }
 
 // ProductRepository defines the contract for product data access.

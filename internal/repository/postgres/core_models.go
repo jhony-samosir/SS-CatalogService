@@ -93,6 +93,8 @@ type ProductModel struct {
 	SEO          []ProductSEOModel          `gorm:"foreignKey:ProductID"`
 	Categories   []CategoryModel            `gorm:"many2many:product_categories;foreignKey:ID;joinForeignKey:ProductID;References:ID;joinReferences:CategoryID"`
 	Tags         []TagModel                 `gorm:"many2many:product_tags;foreignKey:ID;joinForeignKey:ProductID;References:ID;joinReferences:TagID"`
+	Brand        *BrandModel               `gorm:"foreignKey:BrandID"`
+	Variants     []ProductVariantModel     `gorm:"foreignKey:ProductID"`
 
 	// Optimized for single-query detail fetch
 	Translation *ProductTranslationModel `gorm:"-"`
@@ -227,6 +229,35 @@ func (m *ProductModel) ToDomain() domain.Product {
 				Name: t.Name,
 				Slug: t.Slug,
 			}
+		}
+	}
+
+	// Map Brand
+	if m.Brand != nil {
+		p.Brand = &domain.Brand{
+			BaseEntity: domain.BaseEntity{
+				ID:        m.Brand.ID,
+				PublicID:  m.Brand.PublicID,
+				CreatedAt: m.Brand.CreatedAt,
+				CreatedBy: m.Brand.CreatedBy,
+				UpdatedAt: m.Brand.UpdatedAt,
+				UpdatedBy: m.Brand.UpdatedBy,
+				DeletedBy: m.Brand.DeletedBy,
+			},
+			Name:        m.Brand.Name,
+			Slug:        m.Brand.Slug,
+			LogoURL:     m.Brand.LogoURL,
+			WebsiteURL:  m.Brand.WebsiteURL,
+			Description: m.Brand.Description,
+			IsActive:    m.Brand.IsActive,
+		}
+	}
+
+	// Map Variants
+	if len(m.Variants) > 0 {
+		p.Variants = make([]domain.ProductVariant, len(m.Variants))
+		for i, v := range m.Variants {
+			p.Variants[i] = v.ToDomain()
 		}
 	}
 

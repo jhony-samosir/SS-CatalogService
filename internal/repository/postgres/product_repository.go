@@ -42,7 +42,14 @@ func (r *productRepository) FindAll(ctx context.Context, p domain.Pagination) ([
 		query = query.Limit(p.Limit).Offset(p.Offset)
 	}
 
-	if err := query.Find(&models).Error; err != nil {
+	if err := query.
+		Preload("Brand").
+		Preload("Categories").
+		Preload("Tags").
+		Preload("Translations").
+		Preload("SEO").
+		Preload("Variants.Prices").
+		Find(&models).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -57,7 +64,14 @@ func (r *productRepository) FindByID(ctx context.Context, id int) (*domain.Produ
 	var model ProductModel
 	db := getDB(ctx, r.db)
 
-	if err := db.First(&model, id).Error; err != nil {
+	if err := db.
+		Preload("Brand").
+		Preload("Categories").
+		Preload("Tags").
+		Preload("Translations").
+		Preload("SEO").
+		Preload("Variants.Prices").
+		First(&model, id).Error; err != nil {
 		return nil, mapDBError(err)
 	}
 	product := model.ToDomain()
@@ -68,7 +82,14 @@ func (r *productRepository) FindByPublicID(ctx context.Context, publicID uuid.UU
 	var model ProductModel
 	db := getDB(ctx, r.db)
 
-	if err := db.Where("public_id = ?", publicID).First(&model).Error; err != nil {
+	if err := db.Where("public_id = ?", publicID).
+		Preload("Brand").
+		Preload("Categories").
+		Preload("Tags").
+		Preload("Translations").
+		Preload("SEO").
+		Preload("Variants.Prices").
+		First(&model).Error; err != nil {
 		return nil, mapDBError(err)
 	}
 	product := model.ToDomain()
@@ -276,7 +297,14 @@ func (r *productRepository) Search(ctx context.Context, q domain.GetProductSearc
 
 	// --- Execute ---
 	var models []ProductModel
-	if err := tx.Find(&models).Error; err != nil {
+	if err := tx.
+		Preload("Brand").
+		Preload("Categories").
+		Preload("Tags").
+		Preload("Translations").
+		Preload("SEO").
+		Preload("Variants.Prices").
+		Find(&models).Error; err != nil {
 		return nil, mapDBError(err)
 	}
 
