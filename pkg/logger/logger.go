@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"os"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 type contextKey string
@@ -25,6 +27,15 @@ func (h *ContextHandler) Handle(ctx context.Context, r slog.Record) error {
 	if ctx != nil {
 		if cid, ok := ctx.Value(CorrelationIDKey).(string); ok && cid != "" {
 			r.AddAttrs(slog.String("correlation_id", cid))
+		}
+		
+		// Inject OTel trace_id and span_id from active span
+		if span := trace.SpanFromContext(ctx); span.SpanContext().IsValid() {
+			sc := span.SpanContext()
+			r.AddAttrs(
+				slog.String("trace_id", sc.TraceID().String()),
+				slog.String("span_id", sc.SpanID().String()),
+			)
 		}
 	}
 	return h.Handler.Handle(ctx, r)
