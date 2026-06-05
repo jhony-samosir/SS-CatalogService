@@ -2,155 +2,191 @@
 
 ## Overview
 
-SS-CatalogService is a core microservice responsible for managing the product catalog and taxonomy data for the SamStore e-commerce platform. Built with Go 1.26+, the service relies on high-performance frameworks and integrations to handle product searching, indexing, pricing, inventory updates, and multi-variant taxonomy.
+`SS-CatalogService` adalah microservice inti yang mengelola katalog produk dan data taksonomi untuk platform e-commerce SamStore. Dibangun dengan **Go 1.26**, service ini dirancang untuk performa tinggi dalam menangani pencarian produk, indexing, penentuan harga (pricing), update inventaris, dan varian produk multi-level.
 
-The service connects with downstream components via RabbitMQ, ensuring that changes to the catalog trigger corresponding updates across other microservices, and utilizes PostgreSQL for data persistence.
+Service ini terintegrasi dengan **Meilisearch** untuk pencarian teks penuh (full-text search) yang sangat cepat, serta menggunakan **Bigcache** sebagai in-memory cache lokal untuk mengurangi beban query read ke database PostgreSQL.
 
-## Features
+Pola **Hexagonal Architecture** (atau Clean Architecture) digunakan secara ketat untuk memisahkan domain logic, usecase, delivery (HTTP handlers), dan infrastruktur (database, cache, message broker).
 
-- **Product Taxonomy & Catalog Management**: Extensive support for products, brands, categories, attributes, options, and multi-level product variants.
-- **Pricing & Stock Controls**: Handles product pricing, inventory tracking, stock adjustments, and promotional pricing rules.
-- **High-Performance Search & Indexing**: Direct integration with Meilisearch for ultra-fast full-text product search and updates.
-- **In-Memory Caching**: Implements local caching with Bigcache to reduce PostgreSQL query load for high-traffic read paths.
-- **Event-Driven Microservices Sync**: Transactional outbox event publishing via RabbitMQ to keep downstream services up to date.
-- **Database Migrations & Data Seeding**: Versioned schema migrations using golang-migrate and an automated data seed utility.
+---
 
 ## Tech Stack
 
-| Category       | Technology                             |
+| Kategori       | Teknologi                              |
 | -------------- | -------------------------------------- |
-| Language       | Go (version 1.26.2)                    |
+| Runtime        | Go (version 1.26+)                     |
 | Web Framework  | Gin-Gonic                              |
 | Database / ORM | PostgreSQL / GORM                      |
 | Search Engine  | Meilisearch (meilisearch-go)           |
 | Caching        | Bigcache (allegro/bigcache)            |
 | Message Broker | RabbitMQ (amqp091-go)                  |
-| Telemetry      | OpenTelemetry with Gin instrumentation |
+| Telemetry      | OpenTelemetry (dengan Gin instrumentation) |
 
-## Project Structure
+---
+
+## Arsitektur
+
+Service ini menerapkan **Clean Hexagonal Architecture**:
 
 ```text
 SS-CatalogService/
 ├── cmd/
-│   ├── api/                  # HTTP API server entry point (main.go)
-│   └── seed/                 # Catalog initial data seeding utility (main.go)
-├── config/                   # Configuration parsing and environment loading (config.go)
-├── db/                       # SQL migrations and schemas
-│   └── migrations/           # Versioned SQL migration scripts
-├── internal/                 # Core private application codebase
-│   ├── delivery/             # Presentation layer (HTTP / Gin handlers)
-│   ├── domain/               # Business entities and repository/usecase interfaces
-│   ├── infrastructure/       # External drivers (cache, DB initialization, messaging, telemetry)
-│   ├── repository/           # GORM repository implementation
-│   └── usecase/              # Core business application logic
-└── pkg/                      # Public helper utilities (custom logger, responses)
+│   ├── api/                  # Entry point untuk HTTP REST API server
+│   └── seed/                 # Utility untuk inisialisasi data awal (seeding)
+├── config/                   # Parsing environment variables (JWT, DB, RabbitMQ, Meilisearch)
+├── db/
+│   └── migrations/           # Skrip migrasi SQL berversi (golang-migrate)
+├── internal/
+│   ├── delivery/             # HTTP Handlers (Gin) dan Middleware
+│   │   └── http/
+│   │       ├── router.go     # Definisi route API
+│   │       ├── middleware/   # Auth, CorrelationID, Logger
+│   │       └── v1/           # Handlers: Product, Variant, Inventory, Category, Brand, dll
+│   ├── domain/               # Core entities, constants, dan port interfaces (repository & usecase)
+│   ├── infrastructure/       # Implementasi driver eksternal (DB, Cache, Meilisearch, RabbitMQ)
+│   ├── repository/           # Implementasi GORM dan Meilisearch repository
+│   ├── usecase/              # Core business logic
+│   └── worker/               # Background worker (misal: Outbox publisher)
+└── pkg/                      # Utilities (logger, response formatter)
 ```
 
-## Requirements
+---
+
+## Fitur Utama
+
+- **Taksonomi Katalog Lengkap**: Mendukung produk, brand, kategori, atribut, opsi, dan varian produk multi-level.
+- **Harga & Inventaris**: Melacak harga produk, penyesuaian stok, dan riwayat harga.
+- **Pencarian & Indexing Berkinerja Tinggi**: Sinkronisasi otomatis entitas produk dengan Meilisearch. Mendukung *faceted search* (filter berdasarkan harga, kategori, brand, atribut).
+- **In-Memory Caching**: Penggunaan Bigcache untuk mengurangi latensi database pada path baca yang sering diakses (high-traffic read paths).
+- **Event-Driven Outbox**: Publikasi event transaksional (seperti stok berubah atau harga berubah) ke RabbitMQ tanpa risiko kegagalan parsial (*dual write problem*).
+- **Review & Rating**: Mengelola ulasan pengguna terhadap produk dan rangkuman rating.
+- **Bundel Produk & Digital License**: Dukungan untuk produk paket (bundle) dan produk digital (pengunggahan file/lisensi).
+
+---
+
+## API Endpoints
+
+Semua endpoint API diawali dengan `/api/catalog/v1` dan diproteksi (kecuali yang ditandai khusus).
+
+### Products (`/products`)
+| Method | Endpoint                        | Deskripsi                                  |
+| ------ | ------------------------------- | ------------------------------------------ |
+| POST   | `/products`                     | Buat produk baru (Auth)                    |
+| PUT    | `/products/:id`                 | Update produk (Auth)                       |
+| GET    | `/products`                     | Ambil daftar produk                        |
+| GET    | `/products/search`              | Cari produk (via Meilisearch)              |
+| GET    | `/products/faceted-search`      | Cari dengan facet filter                   |
+| GET    | `/products/:id`                 | Detail produk beserta variannya            |
+| GET    | `/products/:id/price-history`   | Riwayat perubahan harga produk             |
+
+### Inventory (`/inventory`)
+| Method | Endpoint               | Deskripsi                                    |
+| ------ | ---------------------- | -------------------------------------------- |
+| GET    | `/inventory`           | Cek status stok                              |
+| POST   | `/inventory/adjust`    | Sesuaikan stok manual atau karena pembelian  |
+
+### Categories, Brands, Attributes, Tags
+Endpoints CRUD lengkap untuk tiap entitas pendukung katalog (dibutuhkan JWT untuk operasi tulis).
+- `/categories`
+- `/brands`
+- `/attributes`
+- `/tags`
+
+### Reviews (`/reviews`)
+| Method | Endpoint                        | Deskripsi                                  |
+| ------ | ------------------------------- | ------------------------------------------ |
+| POST   | `/reviews`                      | Submit ulasan baru (Auth)                  |
+| GET    | `/reviews/product/:id`          | Ambil ulasan untuk satu produk             |
+| GET    | `/reviews/product/:id/summary`  | Dapatkan agregat rating (1-5 bintang)      |
+| PATCH  | `/reviews/:id/status`           | Update status ulasan (approve/reject) (Auth)|
+
+### Lainnya
+- `/variants`: Mengelola varian produk (SKU).
+- `/bundles`: Mengelola bundel produk.
+- `/warehouses`: Mengelola gudang/lokasi penyimpanan.
+- `/sellers`: Registrasi/detail penjual (seller/toko).
+- `/imports`: Impor massal data katalog.
+- `/digital`: Pengelolaan lisensi dan file digital.
+- `/audit-logs`: Log audit operasi katalog.
+- `/health`: Cek kesehatan sistem (digunakan oleh API Gateway).
+
+---
+
+## Environment Variables
+
+| Variable                      | Deskripsi                                      | Wajib |
+| ----------------------------- | ---------------------------------------------- | ----- |
+| `APP_PORT`                    | Port untuk Gin HTTP server (default: 8081)     | Tidak |
+| `ENVIRONMENT`                 | Mode runtime (`development`, `production`)     | ✅    |
+| `DB_DSN`                      | DSN PostgreSQL                                 | ✅    |
+| `RABBITMQ_URL`                | URL koneksi ke RabbitMQ                        | ✅    |
+| `MEILI_URL`                   | Endpoint host Meilisearch                      | ✅    |
+| `MEILI_MASTER_KEY`            | Master key Meilisearch API                     | ✅    |
+| `JWT_SECRET`                  | Fallback key lokal, tapi validasi utama oleh Gateway | ✅ |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Endpoint OTel Collector                        | ✅    |
+
+---
+
+## Instalasi & Menjalankan
+
+### Prasyarat
 
 - Go 1.26+
 - PostgreSQL
 - Meilisearch
 - RabbitMQ
 
-## Installation
+### Setup
 
 ```bash
 git clone <repository>
 cd SamStore/SS-CatalogService
-```
-
-Download the required Go modules:
-
-```bash
 go mod download
 ```
 
-## Configuration
-
-The service maps environment variables via a local `.env` file. Key properties include:
-
-```env
-APP_PORT=                 # HTTP Port for Gin web server (default: 8081)
-DB_DSN=                   # PostgreSQL DSN (e.g. host=localhost user=postgres password=123456 dbname=ss_catalog_db port=5432 sslmode=disable)
-RABBITMQ_URL=             # RabbitMQ broker connection URL
-MEILISEARCH_HOST=         # Meilisearch server host URL
-MEILISEARCH_API_KEY=      # Meilisearch API key
-JWT_SECRET=               # Secret key used for local token verification
-ENVIRONMENT=              # Execution stage (e.g., development, production)
-```
-
-## Running Locally
-
-To run the REST API server:
+### Menjalankan Server API
 
 ```bash
 go run cmd/api/main.go
 ```
 
-To run the initial database data seeding script:
+### Inisialisasi Database (Seeding)
+
+Jika database masih kosong dan butuh data awal:
 
 ```bash
 go run cmd/seed/main.go
 ```
 
-## Build
-
-To compile the service binary:
+### Build & Test
 
 ```bash
+# Build executable binary
 go build -o bin/catalog-service cmd/api/main.go
-```
 
-Or build the containerized Docker image:
-
-```bash
-docker build -t ss-catalog-service .
-```
-
-## Testing
-
-```bash
+# Jalankan seluruh unit tests
 go test ./...
 ```
 
-## API Documentation
+---
 
-Endpoint actions are exposed via the Gin HTTP server:
+## Integrasi & Pola Pesan (Messaging)
 
-| Method | Endpoint | Description                                                      |
-| ------ | -------- | ---------------------------------------------------------------- |
-| GET    | /health  | Check if the service and its backing database/broker are online  |
-| GET    | /metrics | Prometheus compatible metrics endpoint exposed via OpenTelemetry |
+Service ini bertindak sebagai **Producer** untuk event katalog.
+Menggunakan **Outbox Pattern**, setiap operasi bisnis yang mutasi data (misal: stok produk berkurang) akan mencatat `OutboxEvent` di database yang sama dalam satu transaksi SQL. Worker terpisah akan *poll* tabel outbox dan mempublikasikan event tersebut ke `samstore.events` topic exchange di RabbitMQ.
 
-## Database
+**Routing Key yang Diterbitkan:**
+- `catalog.product.created`
+- `catalog.product.updated`
+- `catalog.inventory.adjusted`
 
-- **Database Type**: PostgreSQL.
-- **ORM**: GORM.
-- **Migrations**: Executed via versioned SQL migrations in `db/migrations/` using `golang-migrate`.
-- **Seed Data**: Populated using the custom seeding application inside `cmd/seed/`.
-
-## Deployment
-
-- **Docker**: Deployed using a multi-stage [Dockerfile](Dockerfile) (builder stage compiles the Go binary, runner stage copies it to a lightweight Alpine container).
-- **Docker Compose**: Handled alongside other microservices under the orchestrator configurations.
-
-## Architecture Notes
-
-- **Clean Hexagonal Architecture**: Strict boundary separation. Domain models are isolated from GORM model mapping and transport layers.
-- **Event-Driven Outbox**: Outbox pattern guarantees that catalog updates (like stock additions or pricing changes) are reliably broadcasted to RabbitMQ without risking partial failure.
+---
 
 ## Known Issues
 
-Not identified from source code.
+Tidak ada issue yang teridentifikasi dari source code.
 
 ## Future Improvements
 
-- Add automatic migration runs on application startup.
-- Incorporate distributed caching (like Redis) alongside the existing local Bigcache in-memory system.
-
-## License
-
-```text
-License information not specified.
-```
+- Menambahkan auto-migration run saat startup aplikasi (otomatis memicu `golang-migrate`).
+- Menerapkan distributed cache eksternal (seperti Redis) berdampingan dengan Bigcache jika instance service perlu di-scale out besar-besaran secara stateful.
